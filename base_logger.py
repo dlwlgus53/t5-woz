@@ -1,10 +1,19 @@
 from datetime import datetime
 import logging
 import datetime
-
+import os
+def makedirs(path): 
+   try: 
+        os.makedirs(path) 
+   except OSError: 
+       if not os.path.isdir(path): 
+           raise
+       
+       
+makedirs("./logs");
 now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 logger = logging
-log_file = f"./logs/multiple_choice.log"
+log_file = f"./logs/{now_time}.log"
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 file_handler = logging.FileHandler(log_file)
 file_handler.setFormatter(formatter)

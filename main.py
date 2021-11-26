@@ -24,7 +24,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--data_rate' ,  type = float, default=0.01)
 parser.add_argument('--batch_size' , type = int, default=4)
 parser.add_argument('--test_batch_size' , type = int, default=16)
-
+parser.add_argument('--port' , type = int,  default = 12355)
 parser.add_argument('--max_epoch' ,  type = int, default=1)
 parser.add_argument('--base_trained', type = str, default = "google/t5-small-ssm-nq", help =" pretrainned model from 🤗")
 parser.add_argument('--pretrained_model' , type = str,  help = 'pretrainned model')
@@ -64,7 +64,7 @@ def main_worker(gpu, args):
     
     torch.distributed.init_process_group(
         backend='nccl',
-        init_method='tcp://127.0.0.1:3456',
+        init_method=f'tcp://127.0.0.1:{args.port}',
         world_size=args.gpus,
         rank=gpu)
     
@@ -139,7 +139,7 @@ def evaluate():
     
 def main():
     logger.info(args)
-    makedirs("./data"); makedirs("./logs"); makedirs("./model");makedirs("./out");
+    makedirs("./data");  makedirs("./model");makedirs("./out");
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
     mp.spawn(main_worker,
