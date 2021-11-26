@@ -33,7 +33,7 @@ parser.add_argument('--dev_path' ,  type = str,  default = '../woz-data/MultiWOZ
 parser.add_argument('--train_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data.json')
 parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/test_data.json')
 parser.add_argument('-n', '--nodes', default=1,type=int, metavar='N')
-parser.add_argument('-g', '--gpus', default=2, type=int,help='number of gpus per node')
+parser.add_argument('-g', '--gpus', default=1, type=int,help='number of gpus per node')
 parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
 args = parser.parse_args()
 
@@ -45,16 +45,12 @@ def makedirs(path):
            raise
        
 def get_loader(dataset,batch_size):
-    print('get_loader')
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
     shuffle = False
     pin_memory = True
-    print("after sampler")
     loader = torch.utils.data.DataLoader(
         dataset=dataset, batch_size=batch_size, pin_memory=pin_memory,
         num_workers=0, shuffle=shuffle, sampler=train_sampler,  collate_fn=dataset.collate_fn)
-    
-    print('after data loader')
     return loader       
        
 def main_worker(gpu, args):
@@ -69,11 +65,13 @@ def main_worker(gpu, args):
         rank=gpu)
     
     torch.cuda.set_device(gpu)
-    train_dataset =Dataset(args.train_path, 'train', args.data_rate, args.tokenizer, debug=True)
-    val_dataset =Dataset(args.dev_path, 'val', args.data_rate, args.tokenizer, debug=True)
+
         
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
     model = DDP(model, device_ids=[gpu])
+    
+    train_dataset =Dataset(args.train_path, 'train', args.data_rate, args.tokenizer)
+    val_dataset =Dataset(args.dev_path, 'val', args.data_rate, args.tokenizer)
     
     train_loader = get_loader(train_dataset, batch_size)
     dev_loader = get_loader(val_dataset, batch_size)
@@ -102,7 +100,7 @@ def main_worker(gpu, args):
     for epoch in range(args.max_epoch):
         if gpu==0: logger.info(f"Epoch : {epoch}")
         train(gpu, model, train_loader, optimizer)
-        loss = valid(gpu, model, dev_loader)
+        loss = valid(gpu, model, dev_loader, args.data_rate)
         logger.info("Epoch : %d,  Loss : %.04f" % (epoch, loss))
 
         if gpu == 0 and loss < min_loss:
@@ -119,7 +117,7 @@ def main_worker(gpu, args):
     
     
 def evaluate():
-    test_dataset =Dataset(args.test_path, 'test', args.data_rate, args.tokenizer, debug=False)
+    test_dataset =Dataset(args.test_path, 'test', args.data_rate, args.tokenizer)
     
     loader = torch.utils.data.DataLoader(
         dataset=test_dataset, batch_size=args.test_batch_size, pin_memory=True,
@@ -141,6 +139,7 @@ def main():
     makedirs("./data"); makedirs("./logs"); makedirs("./model");makedirs("./out");
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
+    
     mp.spawn(main_worker,
         nprocs=args.world_size,
         args=(args,),

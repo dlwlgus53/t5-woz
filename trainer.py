@@ -25,13 +25,14 @@ def train(gpu, model, train_loader, optimizer):
             )
         
 
-def valid(gpu, model, dev_loader):
+def valid(gpu, model, dev_loader, data_rate):
     model.eval()
     loss_sum = 0
     logger.info("Validation start")
     with torch.no_grad():
-        print("no_grad")
         for iter,batch in enumerate(dev_loader):
+            if iter/len(dev_loader) > data_rate:
+                break
             output = model(input_ids=batch['input']['input_ids'], labels=batch['target']['input_ids'])
             loss_sum += output.loss.detach()
             if (iter + 1) % 10 == 0 and gpu == 0:
@@ -69,8 +70,6 @@ def test(args, model, test_loader):
                 iter+1, 
                 str(len(test_loader)),
                 ))
-                break
-                
 
     test_file = json.load(open(args.test_path , "r"))
     joint_goal_acc, slot_acc = evaluate_metrics(belief_state, test_file , ontology.QA['all-domain'])

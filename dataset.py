@@ -9,7 +9,7 @@ from tqdm import tqdm
 from base_logger import logger
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, data_path, type, data_rate, tokenizer, debug=True):
+    def __init__(self, data_path, type, data_rate, tokenizer):
         self.tokenizer = tokenizer
         
         if type == 'train':
