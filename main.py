@@ -130,8 +130,7 @@ def evaluate():
     logger.info("Load model")
     if args.pretrained_model:
         logger.info(f"use trained model{args.pretrained_model}")
-        # model.load_state_dict(torch.load(f"model/woz{args.data_rate}.pt"))
-        # model.load_state_dict(torch.load(f"model/woz{args.data_rate}.pt"))
+        model.load_state_dict(torch.load(f"model/woz{args.data_rate}.pt"))
         
     joint_goal_acc, slot_acc, loss = test(args, model, loader)
     logger.info(f'JGA : {joint_goal_acc} Slot Acc : {slot_acc} Loss : {loss}')
