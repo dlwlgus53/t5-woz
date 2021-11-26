@@ -1,6 +1,6 @@
 #!/bin/sh
 
-#SBATCH -J  tfwoz0.01    # Job name
+#SBATCH -J  tfwoz0.1    # Job name
 #SBATCH -o  ./out/t5woz.%j.out   # Name of stdout output file (%j expands to %jobId)
 #SBATCH -p 2080ti         # queue  name  or  partiton name
 #SBATCH -t 72:00:00               # Run time (hh:mm:ss) - 1.5 hours
@@ -42,7 +42,7 @@ TRAIN_DIR=$HOME/t5-woz
 
 
 python main.py --batch_size 8  --gpus 4 --max_epoch 10\
-        --data_rate 0.01  --port 12355
+        --data_rate 0.1  --port 12357
 
 echo " conda deactivate QA "
 

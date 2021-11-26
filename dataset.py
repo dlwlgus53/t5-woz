@@ -62,7 +62,10 @@ class Dataset(torch.utils.data.Dataset):
             
     def encode(self, texts ,return_tensors="pt"):
         examples = []
-        for text in tqdm(texts):
+        for i, text in enumerate(texts):
+            if i%100 == 0:
+                logger.info(f'{i}/{len(texts)}')
+            
             while True:
                 tokenized = self.tokenizer.batch_encode_plus([text], padding=False, return_tensors=return_tensors) # TODO : special token
                 if len(tokenized)> self.tokenizer.model_max_length:

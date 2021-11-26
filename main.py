@@ -70,7 +70,7 @@ def main_worker(gpu, args):
     
     torch.cuda.set_device(gpu)
     train_dataset =Dataset(args.train_path, 'train', args.data_rate, args.tokenizer, debug=True)
-    val_dataset =Dataset(args.train_path, 'train', args.data_rate, args.tokenizer, debug=True)
+    val_dataset =Dataset(args.train_path, 'val', args.data_rate, args.tokenizer, debug=True)
     
         
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
