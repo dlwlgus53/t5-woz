@@ -70,8 +70,7 @@ def main_worker(gpu, args):
     
     torch.cuda.set_device(gpu)
     train_dataset =Dataset(args.train_path, 'train', args.data_rate, args.tokenizer, debug=True)
-    val_dataset =Dataset(args.train_path, 'val', args.data_rate, args.tokenizer, debug=True)
-    
+    val_dataset =Dataset(args.dev_path, 'val', args.data_rate, args.tokenizer, debug=True)
         
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
     model = DDP(model, device_ids=[gpu])
@@ -120,7 +119,7 @@ def main_worker(gpu, args):
     
     
 def evaluate():
-    test_dataset =Dataset(args.test_path, 'test', args.data_rate, args.tokenizer, debug=True)
+    test_dataset =Dataset(args.test_path, 'test', args.data_rate, args.tokenizer, debug=False)
     
     loader = torch.utils.data.DataLoader(
         dataset=test_dataset, batch_size=args.test_batch_size, pin_memory=True,
@@ -139,7 +138,7 @@ def evaluate():
     
 def main():
     logger.info(args)
-    makedirs("./data");  makedirs("./model");makedirs("./out");
+    makedirs("./data"); makedirs("./logs"); makedirs("./model");makedirs("./out");
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
     mp.spawn(main_worker,
