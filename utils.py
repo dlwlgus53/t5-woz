@@ -1,5 +1,5 @@
-import pdb
 # these are from trade-dst, https://github.com/jasonwu0731/trade-dst
+from base_logger import logger
 
 def evaluate_metrics(all_prediction, raw_file, slot_temp):
     turn_acc, joint_acc, turn_cnt, joint_cnt = 0, 0, 0, 0
@@ -13,6 +13,11 @@ def evaluate_metrics(all_prediction, raw_file, slot_temp):
             
             belief_label = [f'{k} : {v}' for (k,v) in belief_label.items()] 
             belief_pred = [f'{k} : {v}' for (k,v) in belief_pred.items()] 
+            if turn_idx == len(dial)-1:
+                logger.info(key)
+                logger.info(f'label : {sorted(belief_label.items())}')
+                logger.info(f'pred : {sorted(belief_pred.items())}')
+                
             if set(belief_label) == set(belief_pred):
                 joint_acc += 1
             joint_cnt +=1
