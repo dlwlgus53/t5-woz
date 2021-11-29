@@ -58,7 +58,7 @@ def test(args, model, test_loader):
             outputs_text = [args.tokenizer.decode(o).replace('</s>','').replace('<pad>','').strip() for o in outputs_text]
             
             
-            for idx in range(args.test_batch_size):
+            for idx in range(len(outputs_text)):
                 if outputs_text[idx] == ontology.QA['NOT_MENTIONED'] : continue
                 dial_id = batch['dial_id'][idx]
                 turn_id = batch['turn_id'][idx]
