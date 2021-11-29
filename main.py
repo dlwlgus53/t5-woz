@@ -7,7 +7,7 @@ from dataset import Dataset
 from trainer import valid, train, test
 from torch.utils.data import DataLoader
 # from knockknock import email_sender
-
+from collections import OrderedDict
 from tqdm import tqdm
 import torch
 from transformers import T5Tokenizer, T5ForConditionalGeneration,Adafactor
@@ -122,12 +122,16 @@ def evaluate():
     loader = torch.utils.data.DataLoader(
         dataset=test_dataset, batch_size=args.test_batch_size, pin_memory=True,
         num_workers=0, shuffle=False, collate_fn=test_dataset.collate_fn)
-    model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(0)
     
-    logger.info("Load model")
-    if args.pretrained_model:
-        logger.info(f"use trained model{args.pretrained_model}")
-        model.load_state_dict(torch.load(f"model/woz{args.data_rate}.pt"))
+    state_dict = torch.load(args.pretrained_model)
+
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
+        new_state_dict[name] = v
+    model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
+    model.load_state_dict(new_state_dict)
+    
         
     joint_goal_acc, slot_acc, loss = test(args, model, loader)
     logger.info(f'JGA : {joint_goal_acc} Slot Acc : {slot_acc} Loss : {loss}')
@@ -140,10 +144,10 @@ def main():
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
     
-    mp.spawn(main_worker,
-        nprocs=args.world_size,
-        args=(args,),
-        join=True)
+    # mp.spawn(main_worker,
+    #     nprocs=args.world_size,
+    #     args=(args,),
+    #     join=True)
     evaluate()
 
 if __name__ =="__main__":
