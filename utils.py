@@ -15,8 +15,8 @@ def evaluate_metrics(all_prediction, raw_file, slot_temp):
             belief_pred = [f'{k} : {v}' for (k,v) in belief_pred.items()] 
             if turn_idx == len(dial)-1:
                 logger.info(key)
-                logger.info(f'label : {sorted(belief_label.items())}')
-                logger.info(f'pred : {sorted(belief_pred.items())}')
+                logger.info(f'label : {sorted(belief_label)}')
+                logger.info(f'pred : {sorted(belief_pred)}')
                 
             if set(belief_label) == set(belief_pred):
                 joint_acc += 1

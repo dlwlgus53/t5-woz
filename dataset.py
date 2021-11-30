@@ -160,7 +160,7 @@ if __name__ == '__main__':
     tokenizer = T5Tokenizer.from_pretrained('t5-small')
     type = 'train'
     
-    dataset = Dataset(data_path, type, data_rate = 0.01, tokenizer= tokenizer) 
+    dataset = Dataset(data_path, type, data_rate = 0.001, tokenizer= tokenizer) 
     loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=4, collate_fn=dataset.collate_fn)
         
     for batch in loader:
