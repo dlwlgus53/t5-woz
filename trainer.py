@@ -77,7 +77,7 @@ def test(args, model, test_loader):
     test_file = json.load(open(args.test_path , "r"))
     joint_goal_acc, slot_acc, schema_acc = evaluate_metrics(belief_state, test_file , ontology.QA['all-domain'])
     
-    loss_sum += outputs.loss.detach()
+    loss_sum += outputs.loss.cpu()
 
     return  joint_goal_acc, slot_acc, schema_acc, loss_sum/iter
         

@@ -1,4 +1,3 @@
-import os
 import utils
 import time
 import torch
@@ -18,7 +17,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration,Adafactor
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--data_rate' ,  type = float, default=0.001)
+parser.add_argument('--data_rate' ,  type = float, default=0.01)
 parser.add_argument('--batch_size' , type = int, default=4)
 parser.add_argument('--test_batch_size' , type = int, default=16)
 parser.add_argument('--port' , type = int,  default = 12355)
@@ -124,10 +123,15 @@ def evaluate():
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
     model.load_state_dict(new_state_dict)
     
-        
     joint_goal_acc, slot_acc, schema_acc, loss = test(args, model, loader)
     logger.info(f'JGA : {joint_goal_acc} Slot Acc : {slot_acc} Loss : {loss}')
     logger.info(f'schema_acc : {schema_acc}')
+    
+    schema_acc['JGA'] = joint_goal_acc
+    schema_acc['schema_acc'] = slot_acc
+    schema_acc['loss'] = loss
+    
+    utils.dict_to_csv(schema_acc, f'{args.save_prefix}{args.data_rate}.csv')
     
     
     
