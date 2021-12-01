@@ -71,6 +71,6 @@ def acc_by_schema(gold, pred, slot_temp):
     
     for p in pred:
         if p not in gold and p.split(" : ")[0] not in miss_slot:
-            schema_acc[g.split(" : ")[0]] -=1
+            schema_acc[p.split(" : ")[0]] -=1
             
     return schema_acc

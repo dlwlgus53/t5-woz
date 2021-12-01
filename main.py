@@ -28,9 +28,8 @@ parser.add_argument('--pretrained_model' , type = str,  help = 'pretrainned mode
 parser.add_argument('--debugging' , type = bool,  default = False, help = "Don't save file")
 parser.add_argument('--dev_path' ,  type = str,  default = '../woz-data/MultiWOZ_2.1/dev_data.json')
 parser.add_argument('--train_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data.json')
-# parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/test_data.json')
-parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data0.001.json')
-
+parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/test_data.json')
+# parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data0.001.json')
 parser.add_argument('--save_prefix', type = str, help = 'prefix for all savings', default = '')
 parser.add_argument('-n', '--nodes', default=1,type=int, metavar='N')
 parser.add_argument('-g', '--gpus', default=2, type=int,help='number of gpus per node')
@@ -137,13 +136,13 @@ def main():
     utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out");
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
-    try:
-        mp.spawn(main_worker,
-            nprocs=args.world_size,
-            args=(args,),
-            join=True)
-    except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
-        logger.error(e)
+    # try:
+    #     mp.spawn(main_worker,
+    #         nprocs=args.world_size,
+    #         args=(args,),
+    #         join=True)
+    # except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
+    #     logger.error(e)
         
     evaluate()
 

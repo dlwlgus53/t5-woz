@@ -17,8 +17,8 @@ class Dataset(torch.utils.data.Dataset):
             pickle_path = f'data/preprocessed_{type}{data_rate}.pickle'
             raw_path = f'{data_path[:-5]}{data_rate}.json'
         else:
-            # pickle_path = f'data/preprocessed_{type}.pickle'
-            pickle_path = f'data/preprocessed_train{data_rate}.pickle'
+            pickle_path = f'data/preprocessed_{type}.pickle'
+            # pickle_path = f'data/preprocessed_train{data_rate}.pickle'
             
             raw_path = f'{data_path[:-5]}.json'
             
