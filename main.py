@@ -28,6 +28,7 @@ parser.add_argument('--debugging' , type = bool,  default = False, help = "Don't
 parser.add_argument('--dev_path' ,  type = str,  default = '../woz-data/MultiWOZ_2.1/dev_data.json')
 parser.add_argument('--train_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data.json')
 parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/test_data.json')
+# parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data0.001.json')
 parser.add_argument('--save_prefix', type = str, help = 'prefix for all savings', default = '')
 parser.add_argument('-n', '--nodes', default=1,type=int, metavar='N')
 parser.add_argument('-g', '--gpus', default=2, type=int,help='number of gpus per node')
@@ -113,15 +114,21 @@ def evaluate():
         dataset=test_dataset, batch_size=args.test_batch_size, pin_memory=True,
         num_workers=0, shuffle=False, collate_fn=test_dataset.collate_fn)
     
-    state_dict = torch.load(args.pretrained_model)
+    if args.pretrained_model:
+        logger.info(f"User pretrained model{args.pretrained_model}")
+        state_dict = torch.load(args.pretrained_model)
 
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
-        new_state_dict[name] = v
-    model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
-    model.load_state_dict(new_state_dict)
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
+            new_state_dict[name] = v
+        model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
+        model.load_state_dict(new_state_dict)
     
+    else:
+        model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
+        
+        
     joint_goal_acc, slot_acc, schema_acc, loss = test(args, model, loader)
     logger.info(f'JGA : {joint_goal_acc} Slot Acc : {slot_acc} Loss : {loss}')
     logger.info(f'schema_acc : {schema_acc}')
