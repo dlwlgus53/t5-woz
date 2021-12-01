@@ -88,13 +88,6 @@ def main_worker(gpu, args):
     
     min_loss = float('inf')
     best_performance = {}
-    map_location = {'cuda:%d' % 0: 'cuda:%d' % gpu}
-    
-    logger.info("Load model")
-    if args.pretrained_model:
-        logger.info(f"use trained model{args.pretrained_model}")
-        model.load_state_dict(
-            torch.load(args.pretrained_model, map_location=map_location))
 
     logger.info("Trainning start")
     for epoch in range(args.max_epoch):
@@ -108,7 +101,7 @@ def main_worker(gpu, args):
             min_loss = loss
             best_performance['min_loss'] = min_loss.item()
             if not args.debugging:
-                torch.save(model.state_dict(), f"model/woz{args.data_rate}.pt")
+                torch.save(model.state_dict(), f"model/rawraw/woz{args.data_rate}.pt")
             logger.info("safely saved")
                 
     if gpu==0:            
@@ -143,11 +136,10 @@ def main():
     makedirs("./data"); makedirs("./logs"); makedirs("./model");makedirs("./out");
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
-    
-    # mp.spawn(main_worker,
-    #     nprocs=args.world_size,
-    #     args=(args,),
-    #     join=True)
+    mp.spawn(main_worker,
+        nprocs=args.world_size,
+        args=(args,),
+        join=True)
     evaluate()
 
 if __name__ =="__main__":

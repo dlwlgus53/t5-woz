@@ -13,7 +13,7 @@ def makedirs(path):
 makedirs("./logs");
 now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 logger = logging
-log_file = f"./logs/0.1.log"
+log_file = f"./logs/rawraw0.1.real.log"
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 file_handler = logging.FileHandler(log_file)
 file_handler.setFormatter(formatter)
