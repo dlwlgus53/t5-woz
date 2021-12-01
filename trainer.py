@@ -1,10 +1,13 @@
 import torch
 import pdb 
 import json
-from base_logger import logger
+import logging
 import ontology
 from utils import*
 from collections import defaultdict
+
+
+logger = logging.getLogger("my")
 
 def train(gpu, model, train_loader, optimizer):
     model.train()
@@ -72,10 +75,10 @@ def test(args, model, test_loader):
                 ))
 
     test_file = json.load(open(args.test_path , "r"))
-    joint_goal_acc, slot_acc = evaluate_metrics(belief_state, test_file , ontology.QA['all-domain'])
+    joint_goal_acc, slot_acc, schema_acc = evaluate_metrics(belief_state, test_file , ontology.QA['all-domain'])
     
     loss_sum += outputs.loss.detach()
 
-    return  joint_goal_acc, slot_acc, loss_sum/iter
+    return  joint_goal_acc, slot_acc, schema_acc, loss_sum/iter
         
         

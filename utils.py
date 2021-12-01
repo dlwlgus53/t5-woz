@@ -1,8 +1,20 @@
 # these are from trade-dst, https://github.com/jasonwu0731/trade-dst
-from base_logger import logger
+import os
+import logging
+from collections import defaultdict
+logger = logging.getLogger("my")
 
+
+def makedirs(path): 
+   try: 
+        os.makedirs(path) 
+   except OSError: 
+       if not os.path.isdir(path): 
+           raise
+       
 def evaluate_metrics(all_prediction, raw_file, slot_temp):
     turn_acc, joint_acc, turn_cnt, joint_cnt = 0, 0, 0, 0
+    schema_acc = {s:0 for s in slot_temp}
     
     for key in raw_file.keys():
         if key not in all_prediction.keys(): continue
@@ -23,9 +35,14 @@ def evaluate_metrics(all_prediction, raw_file, slot_temp):
             joint_cnt +=1
             
             turn_acc += compute_acc(belief_label, belief_pred, slot_temp)
+            schema_acc_temp = acc_by_schema(belief_label, belief_pred, slot_temp)
+            schema_acc = {k : v + schema_acc_temp[k] for (k,v) in schema_acc.items()}
+            
             turn_cnt += 1
             
-    return joint_acc/joint_cnt, turn_acc/turn_cnt
+    # last one is schema acc
+    
+    return joint_acc/joint_cnt, turn_acc/turn_cnt, {k : v/turn_cnt for (k,v) in schema_acc.items()}
 
 def compute_acc(gold, pred, slot_temp):
     miss_gold = 0
@@ -43,3 +60,17 @@ def compute_acc(gold, pred, slot_temp):
     ACC = ACC / float(ACC_TOTAL)
     return ACC
 
+def acc_by_schema(gold, pred, slot_temp):
+    schema_acc = {s:1 for s in slot_temp}
+    miss_slot = []
+
+    for g in gold:
+        if g not in pred:
+            schema_acc[g.split(" : ")[0]] -=1
+            miss_slot.append(g.split(" : ")[0])
+    
+    for p in pred:
+        if p not in gold and p.split(" : ")[0] not in miss_slot:
+            schema_acc[g.split(" : ")[0]] -=1
+            
+    return schema_acc

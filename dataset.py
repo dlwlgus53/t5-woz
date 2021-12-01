@@ -6,7 +6,8 @@ import pickle
 import ontology
 import tokenizer_config as tc
 from tqdm import tqdm
-from base_logger import logger
+import logging
+logger = logging.getLogger("my")
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, data_path, type, data_rate, tokenizer):
@@ -16,7 +17,9 @@ class Dataset(torch.utils.data.Dataset):
             pickle_path = f'data/preprocessed_{type}{data_rate}.pickle'
             raw_path = f'{data_path[:-5]}{data_rate}.json'
         else:
-            pickle_path = f'data/preprocessed_{type}.pickle'
+            # pickle_path = f'data/preprocessed_{type}.pickle'
+            pickle_path = f'data/preprocessed_train{data_rate}.pickle'
+            
             raw_path = f'{data_path[:-5]}.json'
             
         try:

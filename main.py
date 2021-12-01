@@ -1,27 +1,24 @@
 import os
+import utils
 import time
 import torch
+import logging
 import argparse
 import datetime
 from dataset import Dataset
+from log_conf import init_logger
+from collections import OrderedDict
 from trainer import valid, train, test
 from torch.utils.data import DataLoader
-# from knockknock import email_sender
-from collections import OrderedDict
-from tqdm import tqdm
-import torch
-from transformers import T5Tokenizer, T5ForConditionalGeneration,Adafactor
+
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
+from transformers import T5Tokenizer, T5ForConditionalGeneration,Adafactor
 
-
-from base_logger import logger
-
-now_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--data_rate' ,  type = float, default=0.01)
+parser.add_argument('--data_rate' ,  type = float, default=0.001)
 parser.add_argument('--batch_size' , type = int, default=4)
 parser.add_argument('--test_batch_size' , type = int, default=16)
 parser.add_argument('--port' , type = int,  default = 12355)
@@ -31,18 +28,21 @@ parser.add_argument('--pretrained_model' , type = str,  help = 'pretrainned mode
 parser.add_argument('--debugging' , type = bool,  default = False, help = "Don't save file")
 parser.add_argument('--dev_path' ,  type = str,  default = '../woz-data/MultiWOZ_2.1/dev_data.json')
 parser.add_argument('--train_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data.json')
-parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/test_data.json')
+# parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/test_data.json')
+parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data0.001.json')
+
+parser.add_argument('--save_prefix', type = str, help = 'prefix for all savings', default = '')
 parser.add_argument('-n', '--nodes', default=1,type=int, metavar='N')
-parser.add_argument('-g', '--gpus', default=1, type=int,help='number of gpus per node')
+parser.add_argument('-g', '--gpus', default=2, type=int,help='number of gpus per node')
 parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
+
 args = parser.parse_args()
 
-def makedirs(path): 
-   try: 
-        os.makedirs(path) 
-   except OSError: 
-       if not os.path.isdir(path): 
-           raise
+init_logger(f'{args.save_prefix}{args.data_rate}.log')
+logger = logging.getLogger("my")
+
+    
+
        
 def get_loader(dataset,batch_size):
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
@@ -54,7 +54,7 @@ def get_loader(dataset,batch_size):
     return loader       
        
 def main_worker(gpu, args):
-    makedirs("./data"); makedirs("./logs"); makedirs("./model");
+    utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model");
     logger.info(f'{gpu} works!')
     batch_size = int(args.batch_size / args.gpus)
     
@@ -101,7 +101,7 @@ def main_worker(gpu, args):
             min_loss = loss
             best_performance['min_loss'] = min_loss.item()
             if not args.debugging:
-                torch.save(model.state_dict(), f"model/rawraw/woz{args.data_rate}.pt")
+                torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}.pt")
             logger.info("safely saved")
                 
     if gpu==0:            
@@ -126,20 +126,25 @@ def evaluate():
     model.load_state_dict(new_state_dict)
     
         
-    joint_goal_acc, slot_acc, loss = test(args, model, loader)
+    joint_goal_acc, slot_acc, schema_acc, loss = test(args, model, loader)
     logger.info(f'JGA : {joint_goal_acc} Slot Acc : {slot_acc} Loss : {loss}')
+    logger.info(f'schema_acc : {schema_acc}')
     
     
     
 def main():
     logger.info(args)
-    makedirs("./data"); makedirs("./logs"); makedirs("./model");makedirs("./out");
+    utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out");
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
-    mp.spawn(main_worker,
-        nprocs=args.world_size,
-        args=(args,),
-        join=True)
+    try:
+        mp.spawn(main_worker,
+            nprocs=args.world_size,
+            args=(args,),
+            join=True)
+    except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
+        logger.error(e)
+        
     evaluate()
 
 if __name__ =="__main__":
