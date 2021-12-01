@@ -1,4 +1,3 @@
-import os
 import utils
 import time
 import torch
@@ -18,7 +17,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration,Adafactor
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--data_rate' ,  type = float, default=0.001)
+parser.add_argument('--data_rate' ,  type = float, default=0.01)
 parser.add_argument('--batch_size' , type = int, default=4)
 parser.add_argument('--test_batch_size' , type = int, default=16)
 parser.add_argument('--port' , type = int,  default = 12355)
@@ -28,8 +27,8 @@ parser.add_argument('--pretrained_model' , type = str,  help = 'pretrainned mode
 parser.add_argument('--debugging' , type = bool,  default = False, help = "Don't save file")
 parser.add_argument('--dev_path' ,  type = str,  default = '../woz-data/MultiWOZ_2.1/dev_data.json')
 parser.add_argument('--train_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data.json')
-# parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/test_data.json')
-parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data0.001.json')
+parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/test_data.json')
+# parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data0.001.json')
 
 parser.add_argument('--save_prefix', type = str, help = 'prefix for all savings', default = '')
 parser.add_argument('-n', '--nodes', default=1,type=int, metavar='N')
@@ -125,10 +124,15 @@ def evaluate():
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
     model.load_state_dict(new_state_dict)
     
-        
     joint_goal_acc, slot_acc, schema_acc, loss = test(args, model, loader)
     logger.info(f'JGA : {joint_goal_acc} Slot Acc : {slot_acc} Loss : {loss}')
     logger.info(f'schema_acc : {schema_acc}')
+    
+    schema_acc['JGA'] = joint_goal_acc
+    schema_acc['schema_acc'] = slot_acc
+    schema_acc['loss'] = loss
+    
+    utils.dict_to_csv(schema_acc, f'{args.save_prefix}{args.data_rate}.csv')
     
     
     
@@ -137,13 +141,13 @@ def main():
     utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out");
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
-    try:
-        mp.spawn(main_worker,
-            nprocs=args.world_size,
-            args=(args,),
-            join=True)
-    except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
-        logger.error(e)
+    # try:
+    #     mp.spawn(main_worker,
+    #         nprocs=args.world_size,
+    #         args=(args,),
+    #         join=True)
+    # except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
+    #     logger.error(e)
         
     evaluate()
 
