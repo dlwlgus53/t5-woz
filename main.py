@@ -114,15 +114,21 @@ def evaluate():
         dataset=test_dataset, batch_size=args.test_batch_size, pin_memory=True,
         num_workers=0, shuffle=False, collate_fn=test_dataset.collate_fn)
     
-    state_dict = torch.load(args.pretrained_model)
+    if args.pretrained_model:
+        logger.info(f"User pretrained model{args.pretrained_model}")
+        state_dict = torch.load(args.pretrained_model)
 
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
-        new_state_dict[name] = v
-    model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
-    model.load_state_dict(new_state_dict)
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
+            new_state_dict[name] = v
+        model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
+        model.load_state_dict(new_state_dict)
     
+    else:
+        model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
+        
+        
     joint_goal_acc, slot_acc, schema_acc, loss = test(args, model, loader)
     logger.info(f'JGA : {joint_goal_acc} Slot Acc : {slot_acc} Loss : {loss}')
     logger.info(f'schema_acc : {schema_acc}')
