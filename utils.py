@@ -6,7 +6,7 @@ from collections import defaultdict
 logger = logging.getLogger("my")
 
 def dict_to_csv(data, file_name):
-    w = csv.writer(open(f'./logs/{file_name}', "a"))
+    w = csv.writer(open(f'./logs/csvs/{file_name}', "a"))
     for k,v in data.items():
         w.writerow([k,v])
     w.writerow(['===============','================='])
@@ -69,7 +69,7 @@ def compute_acc(gold, pred, slot_temp):
     for p in pred:
         if p not in gold and p.split(" : ")[0] not in miss_slot:
             wrong_pred += 1
-            schema_acc[g.split(" : ")[0]] -=1
+            schema_acc[p.split(" : ")[0]] -=1
             
     ACC_TOTAL = len(slot_temp)
     ACC = len(slot_temp) - miss_gold - wrong_pred
