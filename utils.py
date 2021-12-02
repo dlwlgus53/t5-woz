@@ -53,6 +53,7 @@ def evaluate_metrics(all_prediction, raw_file, slot_temp):
     return joint_acc/joint_cnt, turn_acc/turn_cnt, {k : v/turn_cnt for (k,v) in schema_acc.items()}
 
 def compute_acc(gold, pred, slot_temp):
+    import pdb; pdb.set_trace()
     miss_gold = 0
     miss_slot = []
     schema_acc = {s:1 for s in slot_temp}
