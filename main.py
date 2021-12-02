@@ -146,13 +146,13 @@ def main():
     utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out");
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
-    # try:
-    #     mp.spawn(main_worker,
-    #         nprocs=args.world_size,
-    #         args=(args,),
-    #         join=True)
-    # except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
-    #     logger.error(e)
+    try:
+        mp.spawn(main_worker,
+            nprocs=args.world_size,
+            args=(args,),
+            join=True)
+    except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
+        logger.error(e)
         
     evaluate()
 
