@@ -9,12 +9,24 @@ from collections import defaultdict
 
 logger = logging.getLogger("my")
 
-def train(gpu, model, train_loader, optimizer):
+def train(args, gpu, model, train_loader, optimizer, train_dataset):
     model.train()
     if gpu==0: logger.info("Train start")
     for iter, batch in enumerate(train_loader):
         optimizer.zero_grad()
         outputs = model(input_ids=batch['input']['input_ids'], labels=batch['target']['input_ids'])
+        outputs_text = model.generate(input_ids=batch['input']['input_ids'])
+        outputs_text = [args.tokenizer.decode(o).replace('</s>','').replace('<pad>','').strip() for o in outputs_text]
+        
+        for idx in range(len(outputs_text)):
+            if outputs_text[idx] == ontology.QA['NOT_MENTIONED'] : continue
+            dial_id = batch['dial_id'][idx]
+            turn_id = batch['turn_id'][idx]
+            schema = batch['schema'][idx]
+            train_dataset.prev_belief_state[dial_id][turn_id+1][schema] = outputs_text[idx]
+
+
+
         loss =outputs.loss
         loss.backward()
         optimizer.step()
@@ -28,7 +40,7 @@ def train(gpu, model, train_loader, optimizer):
             )
         
 
-def valid(gpu, model, dev_loader, data_rate):
+def valid(args, gpu, model, dev_loader, data_rate, val_dataset):
     model.eval()
     loss_sum = 0
     logger.info("Validation start")
@@ -36,7 +48,21 @@ def valid(gpu, model, dev_loader, data_rate):
         for iter,batch in enumerate(dev_loader):
             if iter/len(dev_loader) > data_rate:
                 break
+            
             output = model(input_ids=batch['input']['input_ids'], labels=batch['target']['input_ids'])
+            outputs_text = model.generate(input_ids=batch['input']['input_ids'])
+            outputs_text = [args.tokenizer.decode(o).replace('</s>','').replace('<pad>','').strip() for o in outputs_text]
+        
+            
+            for idx in range(len(outputs_text)):
+                if outputs_text[idx] == ontology.QA['NOT_MENTIONED'] : continue
+                dial_id = batch['dial_id'][idx]
+                turn_id = batch['turn_id'][idx]
+                schema = batch['schema'][idx]
+                train_dataset.prev_belief_state[dial_id][turn_id+1][schema] = outputs_text[idx]
+
+
+
             loss_sum += output.loss.detach()
             if (iter + 1) % 10 == 0 and gpu == 0:
                 logger.info('step : {}/{} Loss: {:.4f}'.format(
@@ -49,7 +75,7 @@ def valid(gpu, model, dev_loader, data_rate):
 
 
 
-def test(args, model, test_loader):
+def test(args, model, test_loader, test_dataset):
     belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id # schema
     model.eval()
     loss_sum = 0
@@ -67,6 +93,7 @@ def test(args, model, test_loader):
                 turn_id = batch['turn_id'][idx]
                 schema = batch['schema'][idx]
                 belief_state[dial_id][turn_id][schema] = outputs_text[idx]
+                test_dataset.prev_belief_state[dial_id][turn_id+1][schema] = outputs_text[idx]
 
             if (iter + 1) % 10 == 0:
                 logger.info('step : {}/{}'.format(
@@ -75,10 +102,10 @@ def test(args, model, test_loader):
                 ))
 
     test_file = json.load(open(args.test_path , "r"))
-    joint_goal_acc, slot_acc, schema_acc = evaluate_metrics(belief_state, test_file , ontology.QA['all-domain'])
-    
+    joint_goal_acc, slot_acc, domain_acc,  schema_acc, detail_wrong = evaluate_metrics(belief_state, test_file ,  args.detail_log)
+
     loss_sum += outputs.loss.cpu()
 
-    return  joint_goal_acc, slot_acc, schema_acc, loss_sum/iter
+    return  joint_goal_acc, slot_acc, domain_acc, schema_acc, detail_wrong, loss_sum/iter
         
         

@@ -9,24 +9,22 @@ from tqdm import tqdm
 import logging
 from log_conf import init_logger
 from collections import defaultdict
-import random
-random.seed(1)
 logger = logging.getLogger("my")
 
+
+
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, args, type):
-        self.tokenizer = args.tokenizer
+    def __init__(self, data_path, type, data_rate, tokenizer):
+        self.tokenizer = tokenizer
         self.prev_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
-        self.teacher_rate = args.teacher_rate
-        self.type = type
-        
         
         if type == 'train':
-            pickle_path = f'data/preprocessed_{type}{args.data_rate}.pickle'
-            raw_path = f'{args.data_path[:-5]}{args.data_rate}.json'
+            pickle_path = f'data/preprocessed_{type}{data_rate}.pickle'
+            raw_path = f'{data_path[:-5]}{data_rate}.json'
         else:
-            pickle_path = f'data/preprocessed_{type}.pickle'
-            raw_path = f'{args.data_path[:-5]}.json'
+            # pickle_path = f'data/preprocessed_{type}.pickle'
+            pickle_path = f'data/preprocessed_train{data_rate}.pickle'
+            raw_path = f'{data_path[:-5]}.json'
             
         try:
             logger.info(f"load {pickle_path}")
@@ -42,7 +40,7 @@ class Dataset(torch.utils.data.Dataset):
         except:
             logger.info("Failed to load processed file. Start processing")
             raw_dataset = json.load(open(raw_path , "r"))
-            context, question, answer,  belief, dial_id, turn_id, schema = self.seperate_n_sort_data(raw_dataset)
+            context, question, answer,  belief, dial_id, turn_id, schema = self.seperate_data(raw_dataset)
             # TODO belief에  mltiple 번호 나온다
             assert len(context)==len(question) == len(schema) == len(belief) == len(dial_id) == len(turn_id)
             
@@ -136,19 +134,6 @@ class Dataset(torch.utils.data.Dataset):
                 b = turn['belief'] #  하나씩 밀려서 들어가야함.! 유저 다이얼처럼
                 dialogue_text += '[sys] '
                 dialogue_text += turn['response']
-                
-        for_sort = [[t,d,c,q,s,a,b] for (t,d,c,q,s,a,b) in zip(turn_id, dial_id, context, question, schema, answer,belief)]
-        sorted_items = sorted(for_sort, key=lambda x: (x[0], x[1]))
-        
-        
-        turn_id = [s[0] for s in sorted_items]
-        dial_id = [s[1] for s in sorted_items]
-        context = [s[2] for s in sorted_items]
-        question = [s[3] for s in sorted_items]
-        schema = [s[4] for s in sorted_items]
-        answer = [s[5] for s in sorted_items]
-        belief = [s[6] for s in sorted_items]
-        
         
         return context, question, answer,  belief, dial_id, turn_id, schema
     
@@ -161,57 +146,32 @@ class Dataset(torch.utils.data.Dataset):
         Collate function is applied to the output of a DataLoader as it is yielded.
         """
         # truncate from here
-        do_student = (random.random() < self.teacher_rate)
+        pdb.set_trace()
+        pad_source = self.tokenizer.pad([x["source"] for x in batch],padding=True)
+        pad_target = self.tokenizer.pad([x["target"] for x in batch],padding=True)
         
         schema = [x["schema"] for x in batch]
         dial_id = [x["dial_id"] for x in batch]
         turn_id = [x["turn_id"] for x in batch]
         
-        if do_student:
-            texts = [self.tokenizer.decode(x["source"]["input_ids"]) for x in batch]
-            idxs = [t.rfind('belief:') for t in texts] # find from behind
-            prior_texts = [t[:idx] for (t,idx) in zip(texts, idxs)]
-            belief_teacher = [t[idx + len('belief: '):] for (t,idx) in zip(texts, idxs)]
-            
-            belief = [self.prev_belief_state[d][t]for (d,t) in zip(dial_id, turn_id)] 
-            
-            if type !='test':
-                belief = [b if b!={} else b_teacher for (b,b_teacher) in zip(belief,belief_teacher)]
-            
-            texts = [t + f"belief: {b}" for (t,b) in zip(prior_texts,belief)]
-            
-            source = self.encode(texts)
-            source_list = [{k:v.squeeze() for (k,v) in s.items()} for s in source]
-            
-        else:
-            source_list = [x["source"] for x in batch]
-            
-        target_list = [x["target"] for x in batch]
-            
-        pad_source = self.tokenizer.pad(source_list,padding=True)
-        pad_target = self.tokenizer.pad(target_list,padding=True)
         
         return {"input": pad_source, "target": pad_target,\
                  "schema":schema, "dial_id":dial_id, "turn_id":turn_id}
         
+        # return pad_source
+    
+    
 
 if __name__ == '__main__':
-    import argparse
     init_logger(f'data_process.log')
     logger = logging.getLogger("my")
 
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--data_rate' ,  type = float, default=0.01)
-    parser.add_argument('--teacher_rate' ,  type = float, default=0.2)
-    
-    args = parser.parse_args()
-
-    args.data_path = '../woz-data/MultiWOZ_2.1/train_data.json'
+    data_path = '../woz-data/MultiWOZ_2.1/train_data.json'
     from transformers import T5Tokenizer
-    args.tokenizer = T5Tokenizer.from_pretrained('t5-small')
+    tokenizer = T5Tokenizer.from_pretrained('t5-small')
+    type = 'train'
     
-    dataset = Dataset(args, 'train') 
+    dataset = Dataset(data_path, type, data_rate = 0.001, tokenizer= tokenizer) 
     loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=4, collate_fn=dataset.collate_fn)
         
     for batch in loader:

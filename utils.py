@@ -1,7 +1,8 @@
 # these are from trade-dst, https://github.com/jasonwu0731/trade-dst
 import os
-import csv
+import csv, json
 import logging
+import ontology
 from collections import defaultdict
 logger = logging.getLogger("my")
 
@@ -12,6 +13,12 @@ def dict_to_csv(data, file_name):
     w.writerow(['===============','================='])
     
     
+def dict_to_json(data, file_name):
+    with open(f'./logs/jsons/{file_name}', 'a') as fp:
+        json.dump(data, fp,  indent=4)
+
+
+
 def makedirs(path): 
    try: 
         os.makedirs(path) 
@@ -19,9 +26,14 @@ def makedirs(path):
        if not os.path.isdir(path): 
            raise
        
-def evaluate_metrics(all_prediction, raw_file, slot_temp):
+def evaluate_metrics(all_prediction, raw_file, detail_log):
+    schema = ontology.QA['all-domain']
+    domain = ontology.QA['bigger-domain']
+    
+    detail_wrongs= defaultdict(lambda : defaultdict(list))# dial_id, # turn_id # schema
     turn_acc, joint_acc, turn_cnt, joint_cnt = 0, 0, 0, 0
-    schema_acc = {s:0 for s in slot_temp}
+    schema_acc = {s:0 for s in schema}
+    domain_acc = {s:0 for s in domain}
     
     for key in raw_file.keys():
         if key not in all_prediction.keys(): continue
@@ -41,37 +53,58 @@ def evaluate_metrics(all_prediction, raw_file, slot_temp):
                 joint_acc += 1
             joint_cnt +=1
             
-            ACC, schema_acc_temp = compute_acc(belief_label, belief_pred, slot_temp)
+            ACC, schema_acc_temp, domain_acc_temp, detail_wrong  = compute_acc(belief_label, belief_pred, schema,domain,detail_log)
             
             turn_acc += ACC
             schema_acc = {k : v + schema_acc_temp[k] for (k,v) in schema_acc.items()}
+            domain_acc = {k : v + domain_acc_temp[k] for (k,v) in domain_acc.items()}
+            
+            if detail_log:
+                detail_wrongs[key][turn_idx] = detail_wrong
             
             turn_cnt += 1
             
-    # last one is schema acc
+    domain_acc = {k : v/turn_cnt for (k,v) in domain_acc.items()}
+    schema_acc = {k : v/turn_cnt for (k,v) in schema_acc.items()}
     
-    return joint_acc/joint_cnt, turn_acc/turn_cnt, {k : v/turn_cnt for (k,v) in schema_acc.items()}
+    return joint_acc/joint_cnt, turn_acc/turn_cnt, domain_acc, schema_acc, detail_wrongs
 
-def compute_acc(gold, pred, slot_temp):
-    import pdb; pdb.set_trace()
+def compute_acc(gold, pred, slot_temp, domain, detail_log):
+    # import pdb; pdb.set_trace()
+    detail_wrong = []
     miss_gold = 0
     miss_slot = []
     schema_acc = {s:1 for s in slot_temp}
+    domain_acc = {s:1 for s in domain}
+    
     
     
     for g in gold:
         if g not in pred:
             miss_gold += 1
             schema_acc[g.split(" : ")[0]] -=1
+            domain_acc[g.split("-")[0]] -=1
             miss_slot.append(g.split(" : ")[0])
+            if detail_log:    
+                for p in pred:
+                    if p.startswith(miss_slot[-1]):
+                        detail_wrong.append((g,p))
+                        break
+                else:
+                    detail_wrong.append((g,ontology.QA['NOT_MENTIONED']))
+                                    
             
     wrong_pred = 0
     for p in pred:
         if p not in gold and p.split(" : ")[0] not in miss_slot:
             wrong_pred += 1
             schema_acc[p.split(" : ")[0]] -=1
+            domain_acc[p.split("-")[0]] -=1
+            if detail_log:
+                detail_wrong.append((ontology.QA['NOT_MENTIONED'],p))
             
+        
     ACC_TOTAL = len(slot_temp)
     ACC = len(slot_temp) - miss_gold - wrong_pred
     ACC = ACC / float(ACC_TOTAL)
-    return ACC, schema_acc
+    return ACC, schema_acc, domain_acc, detail_wrong

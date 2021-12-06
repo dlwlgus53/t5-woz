@@ -578,6 +578,15 @@ QA = {
         "restaurant-time"
         
     ],
+    
+    'bigger-domain' : [
+        'train',
+        'taxi',
+        'hotel',
+        'restaurant',
+        'attraction'
+    ],
+    
     "NOT_MENTIONED" : 'not mentioned',
 
 

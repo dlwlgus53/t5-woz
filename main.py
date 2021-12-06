@@ -5,6 +5,8 @@ import logging
 import argparse
 import datetime
 from dataset import Dataset
+from test_dataset import Test_Dataset
+
 from log_conf import init_logger
 from collections import OrderedDict
 from trainer import valid, train, test
@@ -18,6 +20,8 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration,Adafactor
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--data_rate' ,  type = float, default=0.01)
+parser.add_argument('--teacher_rate' ,  type = float, default=1.0)
+
 parser.add_argument('--batch_size' , type = int, default=4)
 parser.add_argument('--test_batch_size' , type = int, default=16)
 parser.add_argument('--port' , type = int,  default = 12355)
@@ -28,6 +32,7 @@ parser.add_argument('--debugging' , type = bool,  default = False, help = "Don't
 parser.add_argument('--dev_path' ,  type = str,  default = '../woz-data/MultiWOZ_2.1/dev_data.json')
 parser.add_argument('--train_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data.json')
 parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/test_data.json')
+parser.add_argument('--detail_log' , type = int,  default = 0)
 # parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data0.001.json')
 parser.add_argument('--save_prefix', type = str, help = 'prefix for all savings', default = '')
 parser.add_argument('-n', '--nodes', default=1,type=int, metavar='N')
@@ -67,8 +72,8 @@ def main_worker(gpu, args):
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
     model = DDP(model, device_ids=[gpu])
     
-    train_dataset =Dataset(args.train_path, 'train', args.data_rate, args.tokenizer)
-    val_dataset =Dataset(args.dev_path, 'val', args.data_rate, args.tokenizer)
+    train_dataset =Dataset(args,'train')
+    val_dataset =Dataset(args, 'val')
     
     train_loader = get_loader(train_dataset, batch_size)
     dev_loader = get_loader(val_dataset, batch_size)
@@ -89,8 +94,8 @@ def main_worker(gpu, args):
     logger.info("Trainning start")
     for epoch in range(args.max_epoch):
         if gpu==0: logger.info(f"Epoch : {epoch}")
-        train(gpu, model, train_loader, optimizer)
-        loss = valid(gpu, model, dev_loader, args.data_rate)
+        train(args, gpu, model, train_loader, optimizer, train_dataset)
+        loss = valid(args, gpu, model, dev_loader, args.data_rate, val_dataset)
         logger.info("Epoch : %d,  Loss : %.04f" % (epoch, loss))
 
         if gpu == 0 and loss < min_loss:
@@ -107,7 +112,7 @@ def main_worker(gpu, args):
     
     
 def evaluate():
-    test_dataset =Dataset(args.test_path, 'test', args.data_rate, args.tokenizer)
+    test_dataset =Test_Dataset(args.test_path,  args.tokenizer)
     
     loader = torch.utils.data.DataLoader(
         dataset=test_dataset, batch_size=args.test_batch_size, pin_memory=True,
@@ -127,16 +132,22 @@ def evaluate():
     else:
         model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
         
-        
-    joint_goal_acc, slot_acc, schema_acc, loss = test(args, model, loader)
+    joint_goal_acc, slot_acc, domain_acc, schema_acc, detail_wrong, loss = test(args, model, loader, test_dataset)
+    
     logger.info(f'JGA : {joint_goal_acc} Slot Acc : {slot_acc} Loss : {loss}')
+    logger.info(f'domain_acc : {domain_acc}')
     logger.info(f'schema_acc : {schema_acc}')
     
     schema_acc['JGA'] = joint_goal_acc
     schema_acc['schema_acc'] = slot_acc
+    schema_acc.update(domain_acc)
     schema_acc['loss'] = loss
     
+    
     utils.dict_to_csv(schema_acc, f'{args.save_prefix}{args.data_rate}.csv')
+    
+    if args.detail_log:
+        utils.dict_to_json(detail_wrong, f'{args.save_prefix}{args.data_rate}.json')
     
     
     
@@ -153,7 +164,7 @@ def main():
     # except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
     #     logger.error(e)
         
-    # evaluate()
+    evaluate()
 
 if __name__ =="__main__":
     utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model");
