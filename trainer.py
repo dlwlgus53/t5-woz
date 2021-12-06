@@ -14,8 +14,11 @@ def train(args, gpu, model, train_loader, optimizer, train_dataset):
     if gpu==0: logger.info("Train start")
     for iter, batch in enumerate(train_loader):
         optimizer.zero_grad()
-        outputs = model(input_ids=batch['input']['input_ids'], labels=batch['target']['input_ids'])
-        outputs_text = model.generate(input_ids=batch['input']['input_ids'])
+        input_ids = batch['input']['input_ids'].to(f'cuda:{gpu}')
+        labels = batch['target']['input_ids'].to(f'cuda:{gpu}')
+        
+        outputs = model(input_ids=input_ids, labels=labels)
+        outputs_text = model.module.generate(input_ids=input_ids)
         outputs_text = [args.tokenizer.decode(o).replace('</s>','').replace('<pad>','').strip() for o in outputs_text]
         
         for idx in range(len(outputs_text)):
@@ -48,9 +51,11 @@ def valid(args, gpu, model, dev_loader, data_rate, val_dataset):
         for iter,batch in enumerate(dev_loader):
             if iter/len(dev_loader) > data_rate:
                 break
-            
-            output = model(input_ids=batch['input']['input_ids'], labels=batch['target']['input_ids'])
-            outputs_text = model.generate(input_ids=batch['input']['input_ids'])
+            input_ids = batch['input']['input_ids'].to(f'cuda:{gpu}')
+            labels = batch['target']['input_ids'].to(f'cuda:{gpu}')
+        
+            output = model(input_ids=input_ids, labels=labels)
+            outputs_text = model.module.generate(input_ids=input_ids)
             outputs_text = [args.tokenizer.decode(o).replace('</s>','').replace('<pad>','').strip() for o in outputs_text]
         
             
@@ -59,12 +64,12 @@ def valid(args, gpu, model, dev_loader, data_rate, val_dataset):
                 dial_id = batch['dial_id'][idx]
                 turn_id = batch['turn_id'][idx]
                 schema = batch['schema'][idx]
-                train_dataset.prev_belief_state[dial_id][turn_id+1][schema] = outputs_text[idx]
+                val_dataset.prev_belief_state[dial_id][turn_id+1][schema] = outputs_text[idx]
 
 
 
             loss_sum += output.loss.detach()
-            if (iter + 1) % 10 == 0 and gpu == 0:
+            if (iter + 1) % 50 == 0 and gpu == 0:
                 logger.info('step : {}/{} Loss: {:.4f}'.format(
                 iter, 
                 str(len(dev_loader)),
@@ -95,7 +100,7 @@ def test(args, model, test_loader, test_dataset):
                 belief_state[dial_id][turn_id][schema] = outputs_text[idx]
                 test_dataset.prev_belief_state[dial_id][turn_id+1][schema] = outputs_text[idx]
 
-            if (iter + 1) % 10 == 0:
+            if (iter + 1) % 50 == 0:
                 logger.info('step : {}/{}'.format(
                 iter+1, 
                 str(len(test_loader)),

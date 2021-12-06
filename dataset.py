@@ -14,7 +14,7 @@ random.seed(1)
 logger = logging.getLogger("my")
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, args, type):
+    def __init__(self, args, data_path, type):
         self.tokenizer = args.tokenizer
         self.prev_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         self.teacher_rate = args.teacher_rate
@@ -23,10 +23,10 @@ class Dataset(torch.utils.data.Dataset):
         
         if type == 'train':
             pickle_path = f'data/preprocessed_{type}{args.data_rate}.pickle'
-            raw_path = f'{args.data_path[:-5]}{args.data_rate}.json'
+            raw_path = f'{data_path[:-5]}{args.data_rate}.json'
         else:
             pickle_path = f'data/preprocessed_{type}.pickle'
-            raw_path = f'{args.data_path[:-5]}.json'
+            raw_path = f'{data_path[:-5]}.json'
             
         try:
             logger.info(f"load {pickle_path}")
@@ -72,8 +72,6 @@ class Dataset(torch.utils.data.Dataset):
     def encode(self, texts ,return_tensors="pt"):
         examples = []
         for i, text in enumerate(texts):
-            if i%1000 == 0:
-                logger.info(f'{i}/{len(texts)}')
             
             # Truncate
             while True:

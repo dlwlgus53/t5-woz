@@ -72,8 +72,8 @@ def main_worker(gpu, args):
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
     model = DDP(model, device_ids=[gpu])
     
-    train_dataset =Dataset(args,'train')
-    val_dataset =Dataset(args, 'val')
+    train_dataset =Dataset(args, args.train_path, 'train')
+    val_dataset =Dataset(args, args.dev_path, 'val')
     
     train_loader = get_loader(train_dataset, batch_size)
     dev_loader = get_loader(val_dataset, batch_size)
@@ -112,7 +112,7 @@ def main_worker(gpu, args):
     
     
 def evaluate():
-    test_dataset =Test_Dataset(args.test_path,  args.tokenizer)
+    test_dataset =Dataset(args, args.test_path, 'test')
     
     loader = torch.utils.data.DataLoader(
         dataset=test_dataset, batch_size=args.test_batch_size, pin_memory=True,
@@ -156,13 +156,13 @@ def main():
     utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out");
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
-    # try:
-    #     mp.spawn(main_worker,
-    #         nprocs=args.world_size,
-    #         args=(args,),
-    #         join=True)
-    # except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
-    #     logger.error(e)
+    try:
+        mp.spawn(main_worker,
+            nprocs=args.world_size,
+            args=(args,),
+            join=True)
+    except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
+        logger.error(e)
         
     evaluate()
 
