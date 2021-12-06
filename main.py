@@ -20,7 +20,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration,Adafactor
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--data_rate' ,  type = float, default=0.01)
-parser.add_argument('--teacher_rate' ,  type = float, default=1.0)
+parser.add_argument('--student_rate' ,  type = float, default=1.0)
 
 parser.add_argument('--batch_size' , type = int, default=4)
 parser.add_argument('--test_batch_size' , type = int, default=16)
@@ -72,7 +72,7 @@ def main_worker(gpu, args):
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
     model = DDP(model, device_ids=[gpu])
     
-    train_dataset =Dataset(args, args.train_path, 'train')
+    train_dataset =Dataset(args, args.train_path, 'train', args.student_rate)
     val_dataset =Dataset(args, args.dev_path, 'val')
     
     train_loader = get_loader(train_dataset, batch_size)

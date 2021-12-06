@@ -34,7 +34,7 @@ def train(args, gpu, model, train_loader, optimizer, train_dataset):
         loss.backward()
         optimizer.step()
     
-        if (iter + 1) % 10 == 0 and gpu==0:
+        if (iter + 1) % 50 == 0 and gpu==0:
             logger.info('gpu {} step : {}/{} Loss: {:.4f}'.format(
                 gpu,
                 iter, 

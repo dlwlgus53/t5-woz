@@ -14,10 +14,10 @@ random.seed(1)
 logger = logging.getLogger("my")
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, args, data_path, type):
+    def __init__(self, args, data_path, type, student_rate = 1.0):
         self.tokenizer = args.tokenizer
         self.prev_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
-        self.teacher_rate = args.teacher_rate
+        self.student_rate = student_rate
         self.type = type
         
         
@@ -33,13 +33,11 @@ class Dataset(torch.utils.data.Dataset):
             with open(pickle_path, 'rb') as f:
                 item = pickle.load(f)
             
-            self.source = item['source']
-            self.target = item['target']
-            self.schema = item['schema']
-            self.dial_id = item['dial_id']
-            self.turn_id = item['turn_id']
-                            
-        except:
+            
+            self.turn_id, self.dial_id, self.source, self.target, self.schema = \
+                self.sort_item(item)
+        except Exception as e:
+            logger.error(e)
             logger.info("Failed to load processed file. Start processing")
             raw_dataset = json.load(open(raw_path , "r"))
             context, question, answer,  belief, dial_id, turn_id, schema = self.seperate_n_sort_data(raw_dataset)
@@ -95,6 +93,27 @@ class Dataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.source)
 
+    def sort_item(self,item):
+        source = item['source']
+        target = item['target']
+        schema = item['schema']
+        dial_id = item['dial_id']
+        turn_id = item['turn_id']
+        
+        for_sort = [[turn,d,s,t,schema] for (turn,d,s,t,schema) in zip(turn_id, dial_id, source, target, schema)]
+        sorted_items = sorted(for_sort, key=lambda x: (x[0], x[1]))
+        
+        
+        turn_id = [s[0] for s in sorted_items]
+        dial_id = [s[1] for s in sorted_items]
+        source = [s[2] for s in sorted_items]
+        target = [s[3] for s in sorted_items]
+        schema = [s[4] for s in sorted_items]
+        
+        
+        
+        return turn_id, dial_id, source,target,schema
+    
     def seperate_data(self, dataset):
         context = []
         question = []
@@ -159,7 +178,7 @@ class Dataset(torch.utils.data.Dataset):
         Collate function is applied to the output of a DataLoader as it is yielded.
         """
         # truncate from here
-        do_student = (random.random() < self.teacher_rate)
+        do_student = (random.random() < self.student_rate)
         
         schema = [x["schema"] for x in batch]
         dial_id = [x["dial_id"] for x in batch]
@@ -201,7 +220,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--data_rate' ,  type = float, default=0.01)
-    parser.add_argument('--teacher_rate' ,  type = float, default=0.2)
+    parser.add_argument('--student_rate' ,  type = float, default=0.2)
     
     args = parser.parse_args()
 
