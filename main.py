@@ -38,7 +38,7 @@ parser.add_argument('--detail_log' , type = int,  default = 0)
 # parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data0.001.json')
 parser.add_argument('--save_prefix', type = str, help = 'prefix for all savings', default = '')
 parser.add_argument('-n', '--nodes', default=1,type=int, metavar='N')
-parser.add_argument('-g', '--gpus', default=2, type=int,help='number of gpus per node')
+parser.add_argument('-g', '--gpus', default=4, type=int,help='number of gpus per node')
 parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
 
 args = parser.parse_args()
