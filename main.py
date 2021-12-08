@@ -5,9 +5,8 @@ import logging
 import argparse
 import datetime
 from dataset import Dataset
-from test_dataset import Test_Dataset
+import init
 
-from log_conf import init_logger
 from collections import OrderedDict
 from trainer import valid, train, test
 from torch.utils.data import DataLoader
@@ -20,8 +19,11 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration,Adafactor
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--data_rate' ,  type = float, default=0.01)
-parser.add_argument('--student_rate' ,  type = float, default=1.0)
+parser.add_argument('--do_train' ,  type = int, default=1)
+parser.add_argument('--do_short' ,  type = int, default=1)
 
+parser.add_argument('--student_rate' ,  type = float, default=1.0)
+parser.add_argument('--seed' ,  type = int, default=1)
 parser.add_argument('--batch_size' , type = int, default=4)
 parser.add_argument('--test_batch_size' , type = int, default=16)
 parser.add_argument('--port' , type = int,  default = 12355)
@@ -40,12 +42,8 @@ parser.add_argument('-g', '--gpus', default=2, type=int,help='number of gpus per
 parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
 
 args = parser.parse_args()
-
-init_logger(f'{args.save_prefix}{args.data_rate}.log')
+init.init_experiment(args)
 logger = logging.getLogger("my")
-
-    
-
        
 def get_loader(dataset,batch_size):
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
@@ -156,13 +154,14 @@ def main():
     utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out");
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
-    try:
-        mp.spawn(main_worker,
-            nprocs=args.world_size,
-            args=(args,),
-            join=True)
-    except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
-        logger.error(e)
+    if args.do_train:
+        try:
+            mp.spawn(main_worker,
+                nprocs=args.world_size,
+                args=(args,),
+                join=True)
+        except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
+            logger.error(e)
         
     evaluate()
 

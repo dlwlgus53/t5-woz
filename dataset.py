@@ -27,6 +27,10 @@ class Dataset(torch.utils.data.Dataset):
         else:
             pickle_path = f'data/preprocessed_{type}.pickle'
             raw_path = f'{data_path[:-5]}.json'
+        
+        
+        if args.do_short:
+            pickle_path = f'data/preprocessed_train0.001.pickle'
             
         try:
             logger.info(f"load {pickle_path}")
