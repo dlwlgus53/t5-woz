@@ -22,7 +22,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--data_rate' ,  type = float, default=0.01)
 parser.add_argument('--student_rate' ,  type = float, default=1.0)
 
-parser.add_argument('--batch_size' , type = int, default=4)
+parser.add_argument('--batch_size' , type = int, default=8)
 parser.add_argument('--test_batch_size' , type = int, default=16)
 parser.add_argument('--port' , type = int,  default = 12355)
 parser.add_argument('--max_epoch' ,  type = int, default=1)
@@ -36,7 +36,7 @@ parser.add_argument('--detail_log' , type = int,  default = 0)
 # parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data0.001.json')
 parser.add_argument('--save_prefix', type = str, help = 'prefix for all savings', default = '')
 parser.add_argument('-n', '--nodes', default=1,type=int, metavar='N')
-parser.add_argument('-g', '--gpus', default=2, type=int,help='number of gpus per node')
+parser.add_argument('-g', '--gpus', default=4, type=int,help='number of gpus per node')
 parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
 
 args = parser.parse_args()
@@ -156,13 +156,13 @@ def main():
     utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out");
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
-    try:
-        mp.spawn(main_worker,
-            nprocs=args.world_size,
-            args=(args,),
-            join=True)
-    except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
-        logger.error(e)
+    # try:
+    #     mp.spawn(main_worker,
+    #         nprocs=args.world_size,
+    #         args=(args,),
+    #         join=True)
+    # except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
+    #     logger.error(e)
         
     evaluate()
 
