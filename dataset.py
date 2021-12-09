@@ -14,18 +14,18 @@ random.seed(1)
 logger = logging.getLogger("my")
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, args, data_path, type, student_rate = 1.0):
+    def __init__(self, args, data_path, data_type, student_rate = 1.0):
         self.tokenizer = args.tokenizer
         self.prev_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         self.student_rate = student_rate
-        self.type = type
+        self.data_type = data_type
         
         
-        if type == 'train':
-            pickle_path = f'data/preprocessed_{type}{args.data_rate}.pickle'
+        if self.data_type == 'train':
+            pickle_path = f'data/preprocessed_{self.data_type}{args.data_rate}.pickle'
             raw_path = f'{data_path[:-5]}{args.data_rate}.json'
         else:
-            pickle_path = f'data/preprocessed_{type}.pickle'
+            pickle_path = f'data/preprocessed_{self.data_type}.pickle'
             raw_path = f'{data_path[:-5]}.json'
         
         
@@ -178,7 +178,6 @@ class Dataset(torch.utils.data.Dataset):
     def collate_fn(self, batch):
         """
         The tensors are stacked together as they are yielded.
-
         Collate function is applied to the output of a DataLoader as it is yielded.
         """
         # truncate from here
@@ -196,7 +195,7 @@ class Dataset(torch.utils.data.Dataset):
             
             belief = [self.prev_belief_state[d][t]for (d,t) in zip(dial_id, turn_id)] 
             
-            if type !='test':
+            if self.data_type !='test':
                 belief = [b if b!={} else b_teacher for (b,b_teacher) in zip(belief,belief_teacher)]
             
             texts = [t + f"belief: {b}" for (t,b) in zip(prior_texts,belief)]
