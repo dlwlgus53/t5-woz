@@ -14,10 +14,10 @@ random.seed(1)
 logger = logging.getLogger("my")
 
 class Dataset(torch.utils.data.Dataset):
-    def __init__(self, args, data_path, data_type, student_rate = 1.0):
+    def __init__(self, args, data_path, data_type):
         self.tokenizer = args.tokenizer
         self.prev_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
-        self.student_rate = student_rate
+        self.student_rate = args.student_rate
         self.data_type = data_type
         
         
@@ -181,13 +181,16 @@ class Dataset(torch.utils.data.Dataset):
         Collate function is applied to the output of a DataLoader as it is yielded.
         """
         # truncate from here
-        do_student = (random.random() < self.student_rate)
+        rrr = random.random()
+        print(rrr)
+        do_student = (rrr < self.student_rate)
         
         schema = [x["schema"] for x in batch]
         dial_id = [x["dial_id"] for x in batch]
         turn_id = [x["turn_id"] for x in batch]
         
-        if do_student and self.data_type == 'test':
+        if do_student or self.data_type == 'test':
+            print("do_student")
             texts = [self.tokenizer.decode(x["source"]["input_ids"]) for x in batch]
             idxs = [t.rfind('belief:') for t in texts] # find from behind
             prior_texts = [t[:idx] for (t,idx) in zip(texts, idxs)]
@@ -204,6 +207,7 @@ class Dataset(torch.utils.data.Dataset):
             source_list = [{k:v.squeeze() for (k,v) in s.items()} for s in source]
             
         else:
+            print("do_teacher")
             source_list = [x["source"] for x in batch]
             
         target_list = [x["target"] for x in batch]
@@ -224,14 +228,17 @@ if __name__ == '__main__':
 
     parser.add_argument('--data_rate' ,  type = float, default=0.01)
     parser.add_argument('--student_rate' ,  type = float, default=0.2)
+    parser.add_argument('--do_short' ,  type = int, default=0)
+    
+    
     
     args = parser.parse_args()
 
-    args.data_path = '../woz-data/MultiWOZ_2.1/train_data.json'
+    args.data_path = '../woz-data/MultiWOZ_2.1/train_data0.001.json'
     from transformers import T5Tokenizer
     args.tokenizer = T5Tokenizer.from_pretrained('t5-small')
     
-    dataset = Dataset(args, 'train') 
+    dataset = Dataset(args, args.data_path, 'train')
     loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=4, collate_fn=dataset.collate_fn)
         
     for batch in loader:
