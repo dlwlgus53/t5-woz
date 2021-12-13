@@ -180,10 +180,7 @@ class Dataset(torch.utils.data.Dataset):
         The tensors are stacked together as they are yielded.
         Collate function is applied to the output of a DataLoader as it is yielded.
         """
-        # truncate from here
-        rrr = random.random()
-        print(rrr)
-        do_student = (rrr < self.student_rate)
+        do_student = (random.random() < self.student_rate)
         
         schema = [x["schema"] for x in batch]
         dial_id = [x["dial_id"] for x in batch]
