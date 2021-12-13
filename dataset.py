@@ -187,7 +187,6 @@ class Dataset(torch.utils.data.Dataset):
         turn_id = [x["turn_id"] for x in batch]
         
         if do_student or self.data_type == 'test':
-            print("do_student")
             texts = [self.tokenizer.decode(x["source"]["input_ids"]) for x in batch]
             idxs = [t.rfind('belief:') for t in texts] # find from behind
             prior_texts = [t[:idx] for (t,idx) in zip(texts, idxs)]
@@ -204,7 +203,6 @@ class Dataset(torch.utils.data.Dataset):
             source_list = [{k:v.squeeze() for (k,v) in s.items()} for s in source]
             
         else:
-            print("do_teacher")
             source_list = [x["source"] for x in batch]
             
         target_list = [x["target"] for x in batch]
