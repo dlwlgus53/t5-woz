@@ -70,7 +70,7 @@ def main_worker(gpu, args):
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
     model = DDP(model, device_ids=[gpu])
     
-    train_dataset =Dataset(args, args.train_path, 'train', args.student_rate)
+    train_dataset =Dataset(args, args.train_path, 'train')
     val_dataset =Dataset(args, args.dev_path, 'val')
     
     train_loader = get_loader(train_dataset, batch_size)
