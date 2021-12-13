@@ -5,7 +5,6 @@ import logging
 import argparse
 import datetime
 from dataset import Dataset
-from test_dataset import Test_Dataset 
 import init
 
 from collections import OrderedDict
@@ -112,7 +111,6 @@ def main_worker(gpu, args):
     
 def evaluate():
     test_dataset =Dataset(args, args.test_path, 'test')
-    # test_dataset =Test_Dataset(args.test_path, args.tokenizer)
     
     
     loader = torch.utils.data.DataLoader(

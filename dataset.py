@@ -44,7 +44,7 @@ class Dataset(torch.utils.data.Dataset):
             logger.error(e)
             logger.info("Failed to load processed file. Start processing")
             raw_dataset = json.load(open(raw_path , "r"))
-            context, question, answer,  belief, dial_id, turn_id, schema = self.seperate_n_sort_data(raw_dataset)
+            context, question, answer,  belief, dial_id, turn_id, schema = self.seperate_data(raw_dataset)
             # TODO belief에  mltiple 번호 나온다
             assert len(context)==len(question) == len(schema) == len(belief) == len(dial_id) == len(turn_id)
             
