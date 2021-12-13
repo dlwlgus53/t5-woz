@@ -238,7 +238,7 @@ if __name__ == '__main__':
     from transformers import T5Tokenizer
     args.tokenizer = T5Tokenizer.from_pretrained('t5-small')
     
-    dataset = Dataset(args, args.data_path, 'train')
+    dataset = Dataset(args, args.data_path, 'test')
     loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=4, collate_fn=dataset.collate_fn)
         
     for batch in loader:
