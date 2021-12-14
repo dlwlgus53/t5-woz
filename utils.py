@@ -4,8 +4,12 @@ import csv, json
 import logging
 import ontology
 from collections import defaultdict
+import pdb
 logger = logging.getLogger("my")
 
+
+def idx_to_text(tokenizer, idx):
+    pass
 def dict_to_csv(data, file_name):
     w = csv.writer(open(f'./logs/csvs/{file_name}', "a"))
     for k,v in data.items():
@@ -26,8 +30,8 @@ def makedirs(path):
        if not os.path.isdir(path): 
            raise
        
-def evaluate_metrics(all_prediction, raw_file, detail_log):
-    schema = ontology.QA['all-domain']
+def evaluate_metrics(all_prediction, response, raw_file, detail_log):
+    schema = ontology.QA['all-domain'][:-1] # next response 는 제외
     domain = ontology.QA['bigger-domain']
     
     detail_wrongs= defaultdict(lambda : defaultdict(list))# dial_id, # turn_id # schema
@@ -69,6 +73,8 @@ def evaluate_metrics(all_prediction, raw_file, detail_log):
     
     return joint_acc/joint_cnt, turn_acc/turn_cnt, domain_acc, schema_acc, detail_wrongs
 
+
+    
 def compute_acc(gold, pred, slot_temp, domain, detail_log):
     # import pdb; pdb.set_trace()
     detail_wrong = []
