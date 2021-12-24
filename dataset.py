@@ -186,8 +186,8 @@ class Dataset(torch.utils.data.Dataset):
         dial_id = [x["dial_id"] for x in batch]
         turn_id = [x["turn_id"] for x in batch]
         
-        if do_student or self.data_type == 'test':
-            texts = [self.tokenizer.decode(x["source"]["input_ids"]) for x in batch]
+        if do_student  or self.data_type == 'test':
+            texts = [self.tokenizer.decode(x["source"]["input_ids"]) for x in batch]    
             idxs = [t.rfind('belief:') for t in texts] # find from behind
             prior_texts = [t[:idx] for (t,idx) in zip(texts, idxs)]
             belief_teacher = [t[idx + len('belief: '):] for (t,idx) in zip(texts, idxs)]
