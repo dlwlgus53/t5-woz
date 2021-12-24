@@ -176,6 +176,7 @@ class Dataset(torch.utils.data.Dataset):
         context = self.context[index]
         belief_state = self.belief_state[index]
         """
+        
         do_dst_student = (random.random() < self.dst_student_rate)
         do_res_student = (random.random() < self.res_student_rate)
         
