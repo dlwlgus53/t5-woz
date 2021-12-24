@@ -13,68 +13,59 @@ import random
 random.seed(1)
 logger = logging.getLogger("my")
 
+
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, args, data_path, data_type):
+        self.data_type = data_type
         self.tokenizer = args.tokenizer
-        self.prev_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
-        self.student_rate = args.student_rate
+        self.dst_student_rate = args.dst_student_rate
+        self.res_student_rate = args.res_student_rate
+        
+        # prev_belief_state['woz001'][0] :  belief state of turn 0
+        # prev_belief_state['woz001'][1] : belief state of turn 1
+        self.belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
+        self.gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
+        
+
+        # answer to user_say
+        # sys_say['woz001'][0] : '[sys] 3개의 후보가 있네요, 어떤걸 원하세요?
+        # sys_say['woz001'][1] : '[sys] 그쪽으로 예약해 드릴게요'
+        self.sys_say= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
+        self.gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
+        
         self.data_type = data_type
         
         
         if self.data_type == 'train':
-            pickle_path = f'data/preprocessed_{self.data_type}{args.data_rate}.pickle'
             raw_path = f'{data_path[:-5]}{args.data_rate}.json'
         else:
-            pickle_path = f'data/preprocessed_{self.data_type}.pickle'
             raw_path = f'{data_path[:-5]}.json'
         
         
         if args.do_short:
-            pickle_path = f'data/preprocessed_train0.001.pickle'
-            
-        try:
-            logger.info(f"load {pickle_path}")
-            with open(pickle_path, 'rb') as f:
-                item = pickle.load(f)
-            
-            
-            self.turn_id, self.dial_id, self.source, self.target, self.schema = \
-                self.sort_item(item)
-        except Exception as e:
-            logger.error(e)
-            logger.info("Failed to load processed file. Start processing")
-            raw_dataset = json.load(open(raw_path , "r"))
-            context, question, answer,  belief, dial_id, turn_id, schema = self.seperate_data(raw_dataset)
-            # TODO belief에  mltiple 번호 나온다
-            assert len(context)==len(question) == len(schema) == len(belief) == len(dial_id) == len(turn_id)
-            
-            input_text = [f"question: {q} context: {c} belief: {b}" for (q,c,b) in zip(question, context, belief)]
+            raw_path = f'../woz-data/MultiWOZ_2.1/train_data0.001.json' 
+                
+        raw_dataset = json.load(open(raw_path , "r"))
+        turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say= self.seperate_data(raw_dataset)
 
-            logger.info("Encoding dataset (it will takes some time)")
-            logger.info("encoding input text")
-            self.source = self.encode(input_text)
-            logger.info("encoding answer")
-            self.target = self.encode(answer)
-            self.schema = schema
-            self.dial_id = dial_id
-            self.turn_id = turn_id
+        assert len(turn_id) == len(dial_id) == len(question)\
+            == len(schema) == len(answer)
             
-            item = {
-                'source' : self.source,
-                'target' : self.target,
-                'schema' : self.schema,
-                'dial_id' : self.dial_id,
-                'turn_id' : self.turn_id,
-            }
+        self.answer = answer # for debugging
+        self.target = self.encode(answer)
+        self.turn_id = turn_id
+        self.dial_id = dial_id
+        self.question = question
+        self.schema = schema
+        self.user_say = user_say
+        self.gold_belief_state = gold_belief_state
+        self.gold_context = gold_context
             
-            with open(pickle_path, 'wb') as f:
-                pickle.dump(item, f, pickle.HIGHEST_PROTOCOL)
             
             
     def encode(self, texts ,return_tensors="pt"):
         examples = []
         for i, text in enumerate(texts):
-            
             # Truncate
             while True:
                 tokenized = self.tokenizer.batch_encode_plus([text], padding=False, return_tensors=return_tensors) # TODO : special token
@@ -87,125 +78,144 @@ class Dataset(torch.utils.data.Dataset):
             examples.append(tokenized)
         return examples
 
-    def __getitem__(self, index):
-        source = {k:v.squeeze() for (k,v) in self.source[index].items()}
-        target = {k:v.squeeze() for (k,v) in self.target[index].items()}
-            
-        return {"source": source, "target": target, \
-                "turn_id" : (self.turn_id[index]), "dial_id" : (self.dial_id[index]), "schema":(self.schema[index])}
-    
     def __len__(self):
-        return len(self.source)
+        return len(self.dial_id)
 
-    def sort_item(self,item):
-        source = item['source']
-        target = item['target']
-        schema = item['schema']
-        dial_id = item['dial_id']
-        turn_id = item['turn_id']
-        
-        for_sort = [[turn,d,s,t,schema] for (turn,d,s,t,schema) in zip(turn_id, dial_id, source, target, schema)]
-        sorted_items = sorted(for_sort, key=lambda x: (x[0], x[1]))
-        
-        
-        turn_id = [s[0] for s in sorted_items]
-        dial_id = [s[1] for s in sorted_items]
-        source = [s[2] for s in sorted_items]
-        target = [s[3] for s in sorted_items]
-        schema = [s[4] for s in sorted_items]
-        
-        
-        
-        return turn_id, dial_id, source,target,schema
-    
     def seperate_data(self, dataset):
-        context = []
+        # user_say don't need sort. Has a key
+        user_say= defaultdict(lambda : defaultdict(str)) 
+        gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
+        gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
+        
         question = []
-        belief = []
         answer = []
         schema = []
         dial_id = []
         turn_id = []
         
         print(f"preprocessing data")
-        for id in dataset.keys():
-            dialogue = dataset[id]['log']
+        for d_id in dataset.keys():
+            dialogue = dataset[d_id]['log']
             dialogue_text = ""
-            b = {}
             
-            for i, turn in enumerate(dialogue):
+            for t_id, turn in enumerate(dialogue):
                 dialogue_text += '[user] '
                 dialogue_text += turn['user']
+                user_say[d_id][t_id] = turn['user']
                 for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
                     q = ontology.QA[key]['description']
                     c = dialogue_text
-                    
                     if key in turn['belief']: # 언급을 한 경우
                         a = turn['belief'][key]
                         if isinstance(a, list) : a= a[0] # in muptiple type, a == ['sunday',6]
                     else:
-                        a = ontology.QA['NOT_MENTIONED']
+                        if key == 'next-response' : a = turn['response_delex']
+                        else : a = ontology.QA['NOT_MENTIONED']
                     
                     schema.append(key)
                     answer.append(a)
-                    context.append(c)
                     question.append(q)
-                    belief.append(b)
-                    dial_id.append(id)
-                    turn_id.append(i)
+                    dial_id.append(d_id)
+                    turn_id.append(t_id)
                     
-                b = turn['belief'] #  하나씩 밀려서 들어가야함.! 유저 다이얼처럼
+                gold_belief_state[d_id][t_id] = turn['belief']
+                gold_context[d_id][t_id] = dialogue_text
+                
+                
                 dialogue_text += '[sys] '
                 dialogue_text += turn['response']
                 
-        for_sort = [[t,d,c,q,s,a,b] for (t,d,c,q,s,a,b) in zip(turn_id, dial_id, context, question, schema, answer,belief)]
+                    
+        for_sort = [[t,d,q,s,a] for (t,d,q,s,a) in zip(turn_id, dial_id,  question, schema, answer)]
         sorted_items = sorted(for_sort, key=lambda x: (x[0], x[1]))
-        
         
         turn_id = [s[0] for s in sorted_items]
         dial_id = [s[1] for s in sorted_items]
-        context = [s[2] for s in sorted_items]
-        question = [s[3] for s in sorted_items]
-        schema = [s[4] for s in sorted_items]
-        answer = [s[5] for s in sorted_items]
-        belief = [s[6] for s in sorted_items]
+        question = [s[2] for s in sorted_items]
+        schema_sort = [s[3] for s in sorted_items]
+        answer = [s[4] for s in sorted_items]
         
         
-        return context, question, answer,  belief, dial_id, turn_id, schema
-    
+        # sort guaranteed to be stable : it is important because of question!   
+        assert schema_sort == schema
+        return turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say
+
+    def __getitem__(self, index):
+        dial_id = self.dial_id[index]
+        turn_id = self.turn_id[index]
+        schema = self.schema[index]
+        question = self.question[index]
+        gold_context = self.gold_context[index]
+        gold_belief_state = self.gold_belief_state[index]
+        
+        
+        target = {k:v.squeeze() for (k,v) in self.target[index].items()}
+        
+        return {"target": target,"turn_id" : turn_id,"question" : question, "gold_context" : gold_context,\
+            "dial_id" : dial_id, "schema":schema,  "gold_belief_state" : gold_belief_state }
     
 
+    def make_history(self, dial_id, turn_id):
+        text = ''
+        for i in range(0,turn_id):
+            text += f'[user] {self.user_say[dial_id][i]}'
+            text += f'[sys] {self.sys_say[dial_id][i]}'
+        
+        text += f'[user] {self.user_say[dial_id][turn_id]}'
+
+        return text
+    
+    
+    def make_DB(self, belief_state, activate):
+        pass
+    
     def collate_fn(self, batch):
         """
         The tensors are stacked together as they are yielded.
         Collate function is applied to the output of a DataLoader as it is yielded.
+        context = self.context[index]
+        belief_state = self.belief_state[index]
         """
-        do_student = (random.random() < self.student_rate)
         
-        schema = [x["schema"] for x in batch]
+        do_dst_student = (random.random() < self.dst_student_rate)
+        do_res_student = (random.random() < self.res_student_rate)
+        
+        
         dial_id = [x["dial_id"] for x in batch]
         turn_id = [x["turn_id"] for x in batch]
-        
-        if do_student  or self.data_type == 'test':
-            texts = [self.tokenizer.decode(x["source"]["input_ids"]) for x in batch]    
-            idxs = [t.rfind('belief:') for t in texts] # find from behind
-            prior_texts = [t[:idx] for (t,idx) in zip(texts, idxs)]
-            belief_teacher = [t[idx + len('belief: '):] for (t,idx) in zip(texts, idxs)]
-            
-            belief = [self.prev_belief_state[d][t]for (d,t) in zip(dial_id, turn_id)] 
-            
-            if self.data_type !='test':
-                belief = [b if b!={} else b_teacher for (b,b_teacher) in zip(belief,belief_teacher)]
-            
-            texts = [t + f"belief: {b}" for (t,b) in zip(prior_texts,belief)]
-            
-            source = self.encode(texts)
-            source_list = [{k:v.squeeze() for (k,v) in s.items()} for s in source]
-            
-        else:
-            source_list = [x["source"] for x in batch]
-            
+        question = [x["question"] for x in batch]
+        schema = [x["schema"] for x in batch]
         target_list = [x["target"] for x in batch]
+        
+        if do_dst_student or self.data_type == 'test':
+            belief = [self.belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
+            # case of next response
+            for idx, s in enumerate(schema):
+                if s == 'next-response':
+                    d = dial_id[idx]
+                    t = turn_id[idx]
+                    belief[idx] = self.belief_state[d][t] 
+        else:
+            belief = [self.gold_belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
+            # case of next response
+            for idx, s in enumerate(schema):
+                if s == 'next-response':
+                    d = dial_id[idx]
+                    t = turn_id[idx]
+                    belief[idx] = self.gold_belief_state[d][t] 
+            
+        if do_res_student or self.data_type == 'test':
+            history = [self.make_history(d,t) for (d,t) in zip(dial_id, turn_id)]
+        else:
+            history = [self.gold_context[d][t] for (d,t) in zip(dial_id, turn_id)]
+        
+
+                
+        input_source = [f"question: {q} context: {c} belief: {b}" for (q,c,b) in  \
+            zip(question, history, belief)]
+        
+        source = self.encode(input_source)
+        source_list = [{k:v.squeeze() for (k,v) in s.items()} for s in source]
             
         pad_source = self.tokenizer.pad(source_list,padding=True)
         pad_target = self.tokenizer.pad(target_list,padding=True)
@@ -223,9 +233,9 @@ if __name__ == '__main__':
 
     parser.add_argument('--data_rate' ,  type = float, default=0.01)
     parser.add_argument('--student_rate' ,  type = float, default=0.2)
-    parser.add_argument('--do_short' ,  type = int, default=0)
-    
-    
+    parser.add_argument('--do_short' ,  type = int, default=1)
+    parser.add_argument('--dst_student_rate' ,  type = float, default=0.5)
+    parser.add_argument('--res_student_rate' ,  type = float, default=0.5)
     
     args = parser.parse_args()
 
@@ -233,8 +243,8 @@ if __name__ == '__main__':
     from transformers import T5Tokenizer
     args.tokenizer = T5Tokenizer.from_pretrained('t5-small')
     
-    dataset = Dataset(args, args.data_path, 'test')
-    loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=4, collate_fn=dataset.collate_fn)
+    dataset = Dataset(args, args.data_path, 'train')
+    loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=16, collate_fn=dataset.collate_fn)
         
     for batch in loader:
         pdb.set_trace()

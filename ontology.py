@@ -312,6 +312,9 @@ important_actions = [
 
 
 QA = {
+    "next-response": {
+        "description" : "What does System will say next?"
+    },
     "hotel-pricerange": {
         "description": "what is the price budget of the hotel?",
         "values": [
@@ -323,7 +326,7 @@ QA = {
         ]
     },
     "hotel-type": {
-        "description": "what type is the hotel?",
+        "description": "what is the type of hotel?",
         "values": [
             "hotel",
             "guesthouse",
@@ -575,7 +578,8 @@ QA = {
         "taxi-leave",
         "taxi-destination",
         "taxi-departure",
-        "restaurant-time"
+        "restaurant-time",
+        "next-response"
         
     ],
     
