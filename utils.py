@@ -91,10 +91,9 @@ def evaluate_response(belief_state, response):
             turn_answer['response'] = response[dial_idx][turn_idx]
             turn_answers.append(turn_answer)
         
-        answer_dict[dial_idx] = turn_answers
-    with open('data.json', 'w') as fp:
+        answer_dict[dial_idx.lower()] = turn_answers
+    with open('logs/response.json', 'w') as fp:
         json.dump(answer_dict, fp, indent=4)
-    pdb.set_trace()
     results = e.evaluate(answer_dict)
     logger.info(results)
             

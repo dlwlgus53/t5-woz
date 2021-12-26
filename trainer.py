@@ -115,10 +115,17 @@ def test(args, model, test_loader, test_dataset):
                 iter+1, 
                 str(len(test_loader)),
                 ))
-                
-                
+                    
+        with open('logs/pred_belief.json', 'w') as fp:
+            json.dump(belief_state, fp, indent=4)
+            
+    
     if args.do_short: args.test_path = '../woz-data/MultiWOZ_2.1/train_data0.001.json'
+    
     test_file = json.load(open(args.test_path , "r"))
+    belief_state = json.load(open('logs/pred_belief.json',"r"))
+    
+
     joint_goal_acc, slot_acc, domain_acc,  schema_acc, detail_wrong = evaluate_metrics(belief_state,test_file ,  args.detail_log)
     _= evaluate_response(belief_state, response)
     
