@@ -8,6 +8,7 @@ import ontology
 from collections import defaultdict
 import pdb
 logger = logging.getLogger("my")
+import pickle
 
 
 def idx_to_text(tokenizer, idx):
@@ -46,7 +47,7 @@ def evaluate_metrics(all_prediction, raw_file, detail_log):
         dial = raw_file[key]['log']
         for turn_idx, turn in enumerate(dial):
             belief_label = turn['belief']
-            belief_pred = all_prediction[key][turn_idx]
+            belief_pred = all_prediction[key][str(turn_idx)]
             
             belief_label = [f'{k} : {v}' for (k,v) in belief_label.items()] 
             belief_pred = [f'{k} : {v}' for (k,v) in belief_pred.items()] 
@@ -85,7 +86,7 @@ def evaluate_response(belief_state, response):
         for turn_idx in range(len(response[dial_idx])):
             turn_answer = {}
             states = defaultdict(dict)
-            for k,v in belief_state[dial_idx][turn_idx].items():
+            for k,v in belief_state[dial_idx][str(turn_idx)].items():
                 states[k.split("-")[0]][k.split("-")[1]] = v
             turn_answer['state'] = states
             turn_answer['response'] = response[dial_idx][turn_idx]
@@ -136,3 +137,14 @@ def compute_acc(gold, pred, slot_temp, domain, detail_log):
     ACC = len(slot_temp) - miss_gold - wrong_pred
     ACC = ACC / float(ACC_TOTAL)
     return ACC, schema_acc, domain_acc, detail_wrong
+
+
+
+def save_pickle(file_name, data):
+    with open(file_name, 'wb') as f:
+        pickle.dump(data, f, pickle.HIGHEST_PROTOCOL)
+
+def load_pickle(file_name):
+    with open(file_name, 'rb') as f:
+        return pickle.load(f)
+    
