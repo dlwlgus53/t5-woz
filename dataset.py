@@ -10,12 +10,12 @@ import logging
 from log_conf import init_logger
 from collections import defaultdict
 import random
-random.seed(1)
 logger = logging.getLogger("my")
 
 
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, args, data_path, data_type):
+        random.seed(args.seed)
         self.data_type = data_type
         self.tokenizer = args.tokenizer
         self.dst_student_rate = args.dst_student_rate
