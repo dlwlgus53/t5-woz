@@ -20,6 +20,7 @@ class Dataset(torch.utils.data.Dataset):
         self.tokenizer = args.tokenizer
         self.dst_student_rate = args.dst_student_rate
         self.res_student_rate = args.res_student_rate
+        self.max_length = args.max_length
         
         # prev_belief_state['woz001'][0] :  belief state of turn 0
         # prev_belief_state['woz001'][1] : belief state of turn 1
@@ -69,7 +70,7 @@ class Dataset(torch.utils.data.Dataset):
             # Truncate
             while True:
                 tokenized = self.tokenizer.batch_encode_plus([text], padding=False, return_tensors=return_tensors) # TODO : special token
-                if len(tokenized)> self.tokenizer.model_max_length:
+                if len(tokenized)> self.max_length:
                     idx = [m.start() for m in re.finditer("\[user\]", text)]
                     text = text[:idx[0]] + text[idx[1]:] # delete one turn
                 else:
