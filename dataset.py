@@ -46,6 +46,8 @@ class Dataset(torch.utils.data.Dataset):
         if args.do_short:
             raw_path = f'../woz-data/MultiWOZ_2.1/train_data0.001.json' 
                 
+
+        logger.info(f"load {args.data_type} n raw file {raw_path}")
         raw_dataset = json.load(open(raw_path , "r"))
         turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say= self.seperate_data(raw_dataset)
 
@@ -94,7 +96,6 @@ class Dataset(torch.utils.data.Dataset):
         dial_id = []
         turn_id = []
         
-        print(f"preprocessing data")
         for d_id in dataset.keys():
             dialogue = dataset[d_id]['log']
             dialogue_text = ""
