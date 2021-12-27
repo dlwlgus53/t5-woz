@@ -47,7 +47,7 @@ class Dataset(torch.utils.data.Dataset):
             raw_path = f'../woz-data/MultiWOZ_2.1/train_data0.001.json' 
                 
 
-        logger.info(f"load {args.data_type} n raw file {raw_path}")
+        logger.info(f"load {self.data_type} raw file {raw_path}")
         raw_dataset = json.load(open(raw_path , "r"))
         turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say= self.seperate_data(raw_dataset)
 
