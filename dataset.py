@@ -10,9 +10,11 @@ import logging
 from log_conf import init_logger
 from collections import defaultdict
 import random
+
+# no response!
+
+
 logger = logging.getLogger("my")
-
-
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, args, data_path, data_type):
         random.seed(args.seed)
@@ -31,7 +33,7 @@ class Dataset(torch.utils.data.Dataset):
         # answer to user_say
         # sys_say['woz001'][0] : '[sys] 3개의 후보가 있네요, 어떤걸 원하세요?
         # sys_say['woz001'][1] : '[sys] 그쪽으로 예약해 드릴게요'
-        self.sys_say= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
+        self.sys_say= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id # 이상할지도 TODO
         self.gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
         
         self.data_type = data_type
@@ -85,6 +87,7 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.dial_id)
 
     def seperate_data(self, dataset):
+        # 만들어질땐 response가 delex이고 예측일땐 delex아니고 그렇게 되어있나??
         # user_say don't need sort. Has a key
         user_say= defaultdict(lambda : defaultdict(str)) 
         gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
