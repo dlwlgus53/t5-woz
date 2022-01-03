@@ -131,7 +131,7 @@ def test(args, model, test_loader, test_dataset):
     belief_state = json.load(open('logs/pred_belief.json',"r"))
 
     joint_goal_acc, slot_acc, domain_acc,  schema_acc, detail_wrong = evaluate_metrics(belief_state,test_file ,  args.detail_log)
-    _= evaluate_response(belief_state, response)
+    # _= evaluate_response(belief_state, response)
     
 
     loss_sum += outputs.loss.cpu()

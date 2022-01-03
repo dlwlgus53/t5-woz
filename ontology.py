@@ -324,12 +324,12 @@ important_actions = [
     "[train]-[offerbooked]-id",
     "[train]-[offerbook]-id"
 ]
-
+next_response = {
+    "description" : "What does System will say next?"
+}
 
 QA = {
-    "next-response": {
-        "description" : "What does System will say next?"
-    },
+    "general-question" : "Are they talking about",
     "hotel-pricerange": {
         "description": "what is the price budget of the hotel?",
         "values": [
@@ -594,8 +594,6 @@ QA = {
         "taxi-destination",
         "taxi-departure",
         "restaurant-time",
-        "next-response"
-        
     ],
     
     'bigger-domain' : [
@@ -615,3 +613,4 @@ QA = {
 
 
 
+ # all-domian에 next response있어야함

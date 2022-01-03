@@ -122,10 +122,26 @@ class Dataset(torch.utils.data.Dataset):
                     question.append(q)
                     dial_id.append(d_id)
                     turn_id.append(t_id)
-                    
+                ###########changed part ###########################################
+                # if self.data_type == 'train':
+                #     for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
+                #         if key != "next-response":
+                #             domain_name = " ".join(key.split("-"))
+                #             q = ontology.QA["general-question"] + " "+domain_name + "?" 
+                #             c = dialogue_text
+                #             if key in turn['belief']: # 언급을 한 경우
+                #                 a = 'yes'
+                #             else:
+                #                 a = 'no'
+                            
+                #             schema.append(key)
+                #             answer.append(a)
+                #             question.append(q)
+                #             dial_id.append(d_id)
+                #             turn_id.append(t_id)
+                ########################################################################    
                 gold_belief_state[d_id][t_id] = turn['belief']
                 gold_context[d_id][t_id] = dialogue_text
-                
                 
                 dialogue_text += '[sys] '
                 dialogue_text += turn['response']
@@ -242,6 +258,10 @@ if __name__ == '__main__':
     parser.add_argument('--do_short' ,  type = int, default=1)
     parser.add_argument('--dst_student_rate' ,  type = float, default=0.5)
     parser.add_argument('--res_student_rate' ,  type = float, default=0.5)
+    parser.add_argument('--seed' ,  type = float, default=1)
+    parser.add_argument('--max_length' ,  type = float, default=128)
+    
+    
     
     args = parser.parse_args()
 
