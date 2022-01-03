@@ -1,6 +1,21 @@
 all_domains = ["restaurant", "hotel", "attraction", "train", "taxi", "hospital", "police"]
-
+db_domains = ['restaurant', 'hotel', 'attraction', 'train']
 # normalize slot names
+
+
+informable_slots = {
+    "taxi": ["leave", "destination", "departure", "arrive"],
+    "police": [],
+    "hospital": ["department"],
+    "hotel": ["type", "parking", "pricerange", "internet", "stay", "day", "people", "area", "stars", "name"],
+    "attraction": ["area", "type", "name"],
+    "train": ["destination", "day", "arrive", "departure", "people", "leave"],
+    "restaurant": ["food", "pricerange", "area", "name", "time", "day", "people"]
+}
+all_infslot = ["type", "parking", "pricerange", "internet", "stay", "day", "people", "area", "stars", "name",
+                     "leave", "destination", "departure", "arrive", "department", "food", "time"]
+
+
 normlize_slot_names = {
     "car type": "car",
     "entrance fee": "price",

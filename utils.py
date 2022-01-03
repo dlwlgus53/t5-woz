@@ -14,17 +14,15 @@ import pickle
 def idx_to_text(tokenizer, idx):
     pass
 def dict_to_csv(data, file_name):
-    w = csv.writer(open(f'./logs/csvs/{file_name}', "a"))
+    w = csv.writer(open(f'./logs/csvs/{file_name}', "w"))
     for k,v in data.items():
         w.writerow([k,v])
     w.writerow(['===============','================='])
     
     
 def dict_to_json(data, file_name):
-    with open(f'./logs/jsons/{file_name}', 'a') as fp:
+    with open(f'./logs/jsons/{file_name}', 'w') as fp:
         json.dump(data, fp,  indent=4)
-
-
 
 def makedirs(path): 
    try: 

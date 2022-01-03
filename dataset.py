@@ -171,8 +171,9 @@ class Dataset(torch.utils.data.Dataset):
         return text
     
     
-    def make_DB(self, belief_state, activate):
-        pass
+    # def get_DB(self, belief_state, activate):
+    #     DBinfo = DB.get_info()
+    #     return DBinfo
     
     def collate_fn(self, batch):
         """

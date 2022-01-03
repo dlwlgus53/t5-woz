@@ -3,6 +3,9 @@ model/
 runs/
 logs/
 out/
+db/
+temp.ipynb
+temp.py
 *.sh
 *.json
 *.csv

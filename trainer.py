@@ -31,10 +31,6 @@ def train(args, gpu, model, train_loader, optimizer, train_dataset):
             if schema == 'next-response' : train_dataset.sys_say[dial_id][turn_id] = outputs_text[idx]
             else: train_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
             
-            
-
-
-
         loss =outputs.loss
         loss.backward()
         optimizer.step()
@@ -106,9 +102,6 @@ def test(args, model, test_loader, test_dataset):
                     belief_state[dial_id][turn_id] = {}
                 
                 if outputs_text[idx] == ontology.QA['NOT_MENTIONED'] : continue
-                
-                
-
                 
                 if schema == 'next-response':
                     response[dial_id][turn_id] = outputs_text[idx]
