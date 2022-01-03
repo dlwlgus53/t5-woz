@@ -123,22 +123,22 @@ class Dataset(torch.utils.data.Dataset):
                     dial_id.append(d_id)
                     turn_id.append(t_id)
                 ###########changed part ###########################################
-                # if self.data_type == 'train':
-                #     for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
-                #         if key != "next-response":
-                #             domain_name = " ".join(key.split("-"))
-                #             q = ontology.QA["general-question"] + " "+domain_name + "?" 
-                #             c = dialogue_text
-                #             if key in turn['belief']: # 언급을 한 경우
-                #                 a = 'yes'
-                #             else:
-                #                 a = 'no'
+                if self.data_type == 'train':
+                    for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
+                        if key != "next-response":
+                            domain_name = " ".join(key.split("-"))
+                            q = ontology.QA["general-question"] + " "+domain_name + "?" 
+                            c = dialogue_text
+                            if key in turn['belief']: # 언급을 한 경우
+                                a = 'yes'
+                            else:
+                                a = 'no'
                             
-                #             schema.append(key)
-                #             answer.append(a)
-                #             question.append(q)
-                #             dial_id.append(d_id)
-                #             turn_id.append(t_id)
+                            schema.append(key)
+                            answer.append(a)
+                            question.append(q)
+                            dial_id.append(d_id)
+                            turn_id.append(t_id)
                 ########################################################################    
                 gold_belief_state[d_id][t_id] = turn['belief']
                 gold_context[d_id][t_id] = dialogue_text
