@@ -212,7 +212,6 @@ class Dataset(torch.utils.data.Dataset):
             belief = [self.gold_belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
         
         history = [self.gold_context[d][t] for (d,t) in zip(dial_id, turn_id)]
-        if belief[0] != {}:
         input_source = [f"question : {q} context : {c} belief : {self._belief_clean(b)}" for (q,c,b) in  \
             zip(question, history, belief)]
         
