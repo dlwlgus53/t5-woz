@@ -11,7 +11,6 @@ from log_conf import init_logger
 from collections import defaultdict
 import random
 
-# no response!
 
 
 logger = logging.getLogger("my")
@@ -21,7 +20,6 @@ class Dataset(torch.utils.data.Dataset):
         self.data_type = data_type
         self.tokenizer = args.tokenizer
         self.dst_student_rate = args.dst_student_rate
-        self.res_student_rate = args.res_student_rate
         self.max_length = args.max_length
         
         # prev_belief_state['woz001'][0] :  belief state of turn 0
@@ -33,7 +31,7 @@ class Dataset(torch.utils.data.Dataset):
         # answer to user_say
         # sys_say['woz001'][0] : '[sys] 3개의 후보가 있네요, 어떤걸 원하세요?
         # sys_say['woz001'][1] : '[sys] 그쪽으로 예약해 드릴게요'
-        self.sys_say= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id # 이상할지도 TODO
+        # self.sys_say= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id # 이상할지도 TODO
         self.gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
         
         self.data_type = data_type
@@ -114,8 +112,7 @@ class Dataset(torch.utils.data.Dataset):
                         a = turn['belief'][key]
                         if isinstance(a, list) : a= a[0] # in muptiple type, a == ['sunday',6]
                     else:
-                        if key == 'next-response' : a = turn['response_delex']
-                        else : a = ontology.QA['NOT_MENTIONED']
+                        a = ontology.QA['NOT_MENTIONED']
                     
                     schema.append(key)
                     answer.append(a)
@@ -123,22 +120,21 @@ class Dataset(torch.utils.data.Dataset):
                     dial_id.append(d_id)
                     turn_id.append(t_id)
                 ###########changed part ###########################################
-                if self.data_type == 'train':
-                    for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
-                        if key != "next-response":
-                            domain_name = " ".join(key.split("-"))
-                            q = ontology.QA["general-question"] + " "+domain_name + "?" 
-                            c = dialogue_text
-                            if key in turn['belief']: # 언급을 한 경우
-                                a = 'yes'
-                            else:
-                                a = 'no'
-                            
-                            schema.append(key)
-                            answer.append(a)
-                            question.append(q)
-                            dial_id.append(d_id)
-                            turn_id.append(t_id)
+                # if self.data_type == 'train':
+                #     for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
+                #         domain_name = " ".join(key.split("-"))
+                #         q = ontology.QA["general-question"] + " "+domain_name + "?" 
+                #         c = dialogue_text
+                #         if key in turn['belief']: # 언급을 한 경우
+                #             a = 'yes'
+                #         else:
+                #             a = 'no'
+
+                #         schema.append(key)
+                #         answer.append(a)
+                #         question.append(q)
+                #         dial_id.append(d_id)
+                #         turn_id.append(t_id)
                 ########################################################################    
                 gold_belief_state[d_id][t_id] = turn['belief']
                 gold_context[d_id][t_id] = dialogue_text
@@ -176,20 +172,15 @@ class Dataset(torch.utils.data.Dataset):
             "dial_id" : dial_id, "schema":schema,  "gold_belief_state" : gold_belief_state }
     
 
-    def make_history(self, dial_id, turn_id):
-        text = ''
-        for i in range(0,turn_id):
-            text += f'[user] {self.user_say[dial_id][i]}'
-            text += f'[sys] {self.sys_say[dial_id][i]}'
+    # def make_history(self, dial_id, turn_id):
+    #     text = ''
+    #     for i in range(0,turn_id):
+    #         text += f'[user] {self.user_say[dial_id][i]}'
+    #         text += f'[sys] {self.sys_say[dial_id][i]}'
         
-        text += f'[user] {self.user_say[dial_id][turn_id]}'
+    #     text += f'[user] {self.user_say[dial_id][turn_id]}'
 
-        return text
-    
-    
-    # def get_DB(self, belief_state, activate):
-    #     DBinfo = DB.get_info()
-    #     return DBinfo
+    #     return text
     
     def collate_fn(self, batch):
         """
@@ -200,7 +191,6 @@ class Dataset(torch.utils.data.Dataset):
         """
         
         do_dst_student = (random.random() < self.dst_student_rate)
-        do_res_student = (random.random() < self.res_student_rate)
         
         
         dial_id = [x["dial_id"] for x in batch]
@@ -211,26 +201,11 @@ class Dataset(torch.utils.data.Dataset):
         
         if do_dst_student or self.data_type == 'test':
             belief = [self.belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
-            # case of next response
-            for idx, s in enumerate(schema):
-                if s == 'next-response':
-                    d = dial_id[idx]
-                    t = turn_id[idx]
-                    belief[idx] = self.belief_state[d][t] 
         else:
             belief = [self.gold_belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
-            # case of next response
-            for idx, s in enumerate(schema):
-                if s == 'next-response':
-                    d = dial_id[idx]
-                    t = turn_id[idx]
-                    belief[idx] = self.gold_belief_state[d][t] 
             
-        if do_res_student or self.data_type == 'test':
-            history = [self.make_history(d,t) for (d,t) in zip(dial_id, turn_id)]
-        else:
-            history = [self.gold_context[d][t] for (d,t) in zip(dial_id, turn_id)]
-        
+
+        history = [self.gold_context[d][t] for (d,t) in zip(dial_id, turn_id)]
 
                 
         input_source = [f"question: {q} context: {c} belief: {b}" for (q,c,b) in  \

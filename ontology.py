@@ -329,7 +329,7 @@ next_response = {
 }
 
 QA = {
-    "general-question" : "Are they talking about",
+    "general-question" : "Did user give information about the ",
     "hotel-pricerange": {
         "description": "what is the price budget of the hotel?",
         "values": [

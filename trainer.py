@@ -28,8 +28,7 @@ def train(args, gpu, model, train_loader, optimizer, train_dataset):
             dial_id = batch['dial_id'][idx]
             turn_id = batch['turn_id'][idx]
             schema = batch['schema'][idx]
-            if schema == 'next-response' : train_dataset.sys_say[dial_id][turn_id] = outputs_text[idx]
-            else: train_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
+            train_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
             
         loss =outputs.loss
         loss.backward()
@@ -65,8 +64,7 @@ def valid(args, gpu, model, dev_loader, data_rate, val_dataset):
                 dial_id = batch['dial_id'][idx]
                 turn_id = batch['turn_id'][idx]
                 schema = batch['schema'][idx]
-                if schema == 'next-response' : val_dataset.sys_say[dial_id][turn_id] = outputs_text[idx]
-                else: val_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
+                val_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
 
 
             loss_sum += output.loss.detach()
@@ -83,7 +81,6 @@ def valid(args, gpu, model, dev_loader, data_rate, val_dataset):
 
 def test(args, model, test_loader, test_dataset):
     belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id # schema
-    response =  defaultdict(lambda : defaultdict(str))# dial_id, # turn_id # schema
     
     model.eval()
     loss_sum = 0
@@ -102,13 +99,8 @@ def test(args, model, test_loader, test_dataset):
                     belief_state[dial_id][turn_id] = {}
                 
                 if outputs_text[idx] == ontology.QA['NOT_MENTIONED'] : continue
-                
-                if schema == 'next-response':
-                    response[dial_id][turn_id] = outputs_text[idx]
-                    test_dataset.sys_say[dial_id][turn_id] = outputs_text[idx]
-                else:
-                    belief_state[dial_id][turn_id][schema] = outputs_text[idx]
-                    test_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
+                belief_state[dial_id][turn_id][schema] = outputs_text[idx]
+                test_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
             
 
             if (iter + 1) % 50 == 0:
@@ -120,9 +112,7 @@ def test(args, model, test_loader, test_dataset):
         with open('logs/pred_belief.json', 'w') as fp:
             json.dump(belief_state, fp, indent=4)
             
-        with open('logs/response.json', 'w') as fp:
-            json.dump(response, fp, indent=4)
-            
+
 
     
     if args.do_short: args.test_path = '../woz-data/MultiWOZ_2.1/train_data0.001.json'
@@ -131,7 +121,6 @@ def test(args, model, test_loader, test_dataset):
     belief_state = json.load(open('logs/pred_belief.json',"r"))
 
     joint_goal_acc, slot_acc, domain_acc,  schema_acc, detail_wrong = evaluate_metrics(belief_state,test_file ,  args.detail_log)
-    # _= evaluate_response(belief_state, response)
     
 
     loss_sum += outputs.loss.cpu()
