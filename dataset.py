@@ -102,7 +102,7 @@ class Dataset(torch.utils.data.Dataset):
             dialogue_text = ""
             
             for t_id, turn in enumerate(dialogue):
-                dialogue_text += '[user] '
+                dialogue_text += ' [user] '
                 dialogue_text += turn['user']
                 user_say[d_id][t_id] = turn['user']
                 for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
@@ -120,26 +120,26 @@ class Dataset(torch.utils.data.Dataset):
                     dial_id.append(d_id)
                     turn_id.append(t_id)
                 ###########changed part ###########################################
-                # if self.data_type == 'train':
-                #     for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
-                #         domain_name = " ".join(key.split("-"))
-                #         q = ontology.QA["general-question"] + " "+domain_name + "?" 
-                #         c = dialogue_text
-                #         if key in turn['belief']: # 언급을 한 경우
-                #             a = 'yes'
-                #         else:
-                #             a = 'no'
+                if self.data_type == 'train':
+                    for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
+                        domain_name = " ".join(key.split("-"))
+                        q = ontology.QA["general-question"] + " "+domain_name + "?" 
+                        c = dialogue_text
+                        if key in turn['belief']: # 언급을 한 경우
+                            a = 'yes'
+                        else:
+                            a = 'no'
 
-                #         schema.append(key)
-                #         answer.append(a)
-                #         question.append(q)
-                #         dial_id.append(d_id)
-                #         turn_id.append(t_id)
+                        schema.append(key)
+                        answer.append(a)
+                        question.append(q)
+                        dial_id.append(d_id)
+                        turn_id.append(t_id)
                 ########################################################################    
                 gold_belief_state[d_id][t_id] = turn['belief']
                 gold_context[d_id][t_id] = dialogue_text
                 
-                dialogue_text += '[sys] '
+                dialogue_text += ' [sys] '
                 dialogue_text += turn['response']
                 
                     
@@ -182,6 +182,13 @@ class Dataset(torch.utils.data.Dataset):
 
     #     return text
     
+    
+    def _belief_clean(self, belief_dict):
+        clean_belief = str(belief_dict).replace('{','').replace('}','')
+        clean_belief = clean_belief.replace("'","")
+        clean_belief = clean_belief.replace(":", " is")
+        clean_belief = clean_belief.replace("-", " ")
+        return clean_belief
     def collate_fn(self, batch):
         """
         The tensors are stacked together as they are yielded.
@@ -203,12 +210,10 @@ class Dataset(torch.utils.data.Dataset):
             belief = [self.belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
         else:
             belief = [self.gold_belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
-            
-
+        
         history = [self.gold_context[d][t] for (d,t) in zip(dial_id, turn_id)]
-
-                
-        input_source = [f"question: {q} context: {c} belief: {b}" for (q,c,b) in  \
+        if belief[0] != {}:
+        input_source = [f"question : {q} context : {c} belief : {self._belief_clean(b)}" for (q,c,b) in  \
             zip(question, history, belief)]
         
         source = self.encode(input_source)
@@ -235,6 +240,9 @@ if __name__ == '__main__':
     parser.add_argument('--res_student_rate' ,  type = float, default=0.5)
     parser.add_argument('--seed' ,  type = float, default=1)
     parser.add_argument('--max_length' ,  type = float, default=128)
+    parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
+    parser.add_argument('--base_trained', type = str, default = "google/t5-small-ssm-nq", help =" pretrainned model from 🤗")
+
     
     
     
@@ -243,10 +251,16 @@ if __name__ == '__main__':
     args.data_path = '../woz-data/MultiWOZ_2.1/train_data0.001.json'
     from transformers import T5Tokenizer
     args.tokenizer = T5Tokenizer.from_pretrained('t5-small')
+    with open(args.never_split_file, "r") as f:
+        never_split = f.read().splitlines() 
+        
+    special_tokens_dict = {'additional_special_tokens': never_split}
+    args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
+    args.tokenizer.add_special_tokens(special_tokens_dict)
     
     dataset = Dataset(args, args.data_path, 'train')
     loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=16, collate_fn=dataset.collate_fn)
-        
+    
     for batch in loader:
         pdb.set_trace()
     

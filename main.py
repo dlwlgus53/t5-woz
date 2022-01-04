@@ -40,6 +40,7 @@ parser.add_argument('--save_prefix', type = str, help = 'prefix for all savings'
 parser.add_argument('-n', '--nodes', default=1,type=int, metavar='N')
 parser.add_argument('-g', '--gpus', default=4, type=int,help='number of gpus per node')
 parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
+parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
 
 args = parser.parse_args()
 init.init_experiment(args)
@@ -68,6 +69,7 @@ def main_worker(gpu, args):
 
         
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
+    model.resize_token_embeddings(len(args.tokenizer))
     model = DDP(model, device_ids=[gpu])
     
     train_dataset =Dataset(args, args.train_path, 'train')
@@ -126,6 +128,7 @@ def evaluate():
             name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
             new_state_dict[name] = v
         model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
+        model.resize_token_embeddings(len(args.tokenizer))
         model.load_state_dict(new_state_dict)
     
     else:
@@ -152,9 +155,15 @@ def evaluate():
     
 def main():
     logger.info(args)
-    utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out");
+    utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out")
+    with open(args.never_split_file, "r") as f:
+        never_split = f.read().splitlines() 
+    special_tokens_dict = {'additional_special_tokens': never_split}
+    print(special_tokens_dict)
+    
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
+    args.tokenizer.add_special_tokens(special_tokens_dict)
     if args.do_train:
         try:
             mp.spawn(main_worker,
