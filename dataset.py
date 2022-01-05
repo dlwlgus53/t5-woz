@@ -119,7 +119,7 @@ class Dataset(torch.utils.data.Dataset):
                     question.append(q)
                     dial_id.append(d_id)
                     turn_id.append(t_id)
-                ###########changed part ###########################################
+                # ###########changed part ###########################################
                 if self.data_type == 'train':
                     for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
                         domain_name = " ".join(key.split("-"))
@@ -135,7 +135,7 @@ class Dataset(torch.utils.data.Dataset):
                         question.append(q)
                         dial_id.append(d_id)
                         turn_id.append(t_id)
-                ########################################################################    
+                # ########################################################################    
                 gold_belief_state[d_id][t_id] = turn['belief']
                 gold_context[d_id][t_id] = dialogue_text
                 
@@ -189,6 +189,7 @@ class Dataset(torch.utils.data.Dataset):
         clean_belief = clean_belief.replace(":", " is")
         clean_belief = clean_belief.replace("-", " ")
         return clean_belief
+    
     def collate_fn(self, batch):
         """
         The tensors are stacked together as they are yielded.
