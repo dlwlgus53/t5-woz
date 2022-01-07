@@ -24,11 +24,11 @@ def train(args, gpu, model, train_loader, optimizer, train_dataset):
         outputs_text = [args.tokenizer.decode(o).replace('</s>','').replace('<pad>','').strip() for o in outputs_text]
         
         for idx in range(len(outputs_text)):
-            if outputs_text[idx] == ontology.QA['NOT_MENTIONED'] : continue
             dial_id = batch['dial_id'][idx]
             turn_id = batch['turn_id'][idx]
             schema = batch['schema'][idx]
-            train_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
+            if schema == 'general-question':
+                train_dataset.belief_state[dial_id][turn_id] = belief_text_to_dict(outputs_text[idx])
             
         loss =outputs.loss
         loss.backward()
@@ -41,7 +41,7 @@ def train(args, gpu, model, train_loader, optimizer, train_dataset):
                 str(len(train_loader)),
                 loss.detach())
             )
-        
+            logger.info(belief_text_to_dict(outputs_text[idx]))
 
 def valid(args, gpu, model, dev_loader, data_rate, val_dataset):
     model.eval()
@@ -49,8 +49,8 @@ def valid(args, gpu, model, dev_loader, data_rate, val_dataset):
     logger.info("Validation start")
     with torch.no_grad():
         for iter,batch in enumerate(dev_loader):
-            if iter/len(dev_loader) > data_rate:
-                break
+            # if iter/len(dev_loader) > data_rate:
+            #     break
             input_ids = batch['input']['input_ids'].to(f'cuda:{gpu}')
             labels = batch['target']['input_ids'].to(f'cuda:{gpu}')
         
@@ -58,14 +58,10 @@ def valid(args, gpu, model, dev_loader, data_rate, val_dataset):
             outputs_text = model.module.generate(input_ids=input_ids)
             outputs_text = [args.tokenizer.decode(o).replace('</s>','').replace('<pad>','').strip() for o in outputs_text]
         
-            
             for idx in range(len(outputs_text)):
-                if outputs_text[idx] == ontology.QA['NOT_MENTIONED'] : continue
                 dial_id = batch['dial_id'][idx]
                 turn_id = batch['turn_id'][idx]
-                schema = batch['schema'][idx]
-                val_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
-
+                val_dataset.belief_state[dial_id][turn_id] = belief_text_to_dict(outputs_text[idx])
 
             loss_sum += output.loss.detach()
             if (iter + 1) % 50 == 0 and gpu == 0:
@@ -74,14 +70,29 @@ def valid(args, gpu, model, dev_loader, data_rate, val_dataset):
                 str(len(dev_loader)),
                 output.loss.detach()
                 ))
+                logger.info(belief_text_to_dict(outputs_text[idx]))
            
     return  loss_sum/iter
 
+def belief_text_to_dict(belief):
+    belief_dict = {}
+    if belief == 'none':
+        return {}
+    else:
+        items = belief.split(",")
+        try:
+            for item in items:
+                slot, value = item.split(" is")[0].strip(),item.split(" is")[1].strip()
+                slot = slot.split(" ")[0] + '-' +slot.split(" ")[1]
 
+                belief_dict[slot] = value
+        except:
+            # print(belief)
+            pass
+    return belief_dict
 
 def test(args, model, test_loader, test_dataset):
     belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id # schema
-    
     model.eval()
     loss_sum = 0
     logger.info("Test start")
@@ -90,7 +101,7 @@ def test(args, model, test_loader, test_dataset):
             outputs = model(input_ids=batch['input']['input_ids'].to('cuda'), labels=batch['target']['input_ids'].to('cuda'))
             outputs_text = model.generate(input_ids=batch['input']['input_ids'].to('cuda'))
             outputs_text = [args.tokenizer.decode(o).replace('</s>','').replace('<pad>','').strip() for o in outputs_text]
-
+            
             for idx in range(len(outputs_text)):
                 dial_id = batch['dial_id'][idx]
                 turn_id = batch['turn_id'][idx]
@@ -99,8 +110,8 @@ def test(args, model, test_loader, test_dataset):
                     belief_state[dial_id][turn_id] = {}
                 
                 if outputs_text[idx] == ontology.QA['NOT_MENTIONED'] : continue
-                belief_state[dial_id][turn_id][schema] = outputs_text[idx]
-                test_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
+                belief_state[dial_id][turn_id] = belief_text_to_dict(outputs_text[idx])
+                test_dataset.belief_state[dial_id][turn_id] = belief_text_to_dict(outputs_text[idx])
             
 
             if (iter + 1) % 50 == 0:
@@ -108,13 +119,10 @@ def test(args, model, test_loader, test_dataset):
                 iter+1, 
                 str(len(test_loader)),
                 ))
+                logger.info(belief_text_to_dict(outputs_text[idx]))
          
         with open('logs/pred_belief.json', 'w') as fp:
             json.dump(belief_state, fp, indent=4)
-            
-
-
-    
     if args.do_short: args.test_path = '../woz-data/MultiWOZ_2.1/train_data0.001.json'
     
     test_file = json.load(open(args.test_path , "r"))

@@ -329,7 +329,8 @@ next_response = {
 }
 
 QA = {
-    "general-question" : "Are they talking about ",
+    "general-question" : "translate dialog to belief : ",
+    
     "hotel-pricerange": {
         "description": "what is the price budget of the hotel?",
         "values": [
@@ -605,8 +606,6 @@ QA = {
     ],
     
     "NOT_MENTIONED" : 'not mentioned',
-
-
 }
 
 

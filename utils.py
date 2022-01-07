@@ -127,8 +127,10 @@ def compute_acc(gold, pred, slot_temp, domain, detail_log):
     for p in pred:
         if p not in gold and p.split(" : ")[0] not in miss_slot:
             wrong_pred += 1
-            schema_acc[p.split(" : ")[0]] -=1
-            domain_acc[p.split("-")[0]] -=1
+            if p.split(" : ")[0] in slot_temp:
+                schema_acc[p.split(" : ")[0]] -=1
+            if p.split("-")[0] in domain:
+                domain_acc[p.split("-")[0]] -=1
             if detail_log:
                 detail_wrong.append((ontology.QA['NOT_MENTIONED'],p))
             

@@ -105,37 +105,33 @@ class Dataset(torch.utils.data.Dataset):
                 dialogue_text += ' [user] '
                 dialogue_text += turn['user']
                 user_say[d_id][t_id] = turn['user']
-                for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
-                    q = ontology.QA[key]['description']
-                    c = dialogue_text
-                    if key in turn['belief']: # 언급을 한 경우
-                        a = turn['belief'][key]
-                        if isinstance(a, list) : a= a[0] # in muptiple type, a == ['sunday',6]
-                    else:
-                        a = ontology.QA['NOT_MENTIONED']
-                    
-                    schema.append(key)
-                    answer.append(a)
-                    question.append(q)
-                    dial_id.append(d_id)
-                    turn_id.append(t_id)
-                # ###########changed part ###########################################
+                
                 if self.data_type == 'train':
-                    for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
-                        domain_name = " ".join(key.split("-"))
-                        q = ontology.QA["general-question"] + " "+domain_name + "?" 
+                    for _, key in enumerate(ontology.QA['all-domain']): # TODO
+                        q = ontology.QA[key]['description']
                         c = dialogue_text
                         if key in turn['belief']: # 언급을 한 경우
-                            a = 'yes'
-                        else:
-                            a = 'no'
+                            a = turn['belief'][key]
+                            if isinstance(a, list) : a= a[0] # in muptiple type, a == ['sunday',6]
+                        # else:
+                        #     a = ontology.QA['NOT_MENTIONED']
+                        
+                            schema.append(key)
+                            answer.append(a)
+                            question.append(q)
+                            dial_id.append(d_id)
+                            turn_id.append(t_id)
+                ###########changed part ###########################################
+                q = ontology.QA["general-question"]
+                c = dialogue_text
+                a = self._belief_clean(turn['belief'])
 
-                        schema.append(key)
-                        answer.append(a)
-                        question.append(q)
-                        dial_id.append(d_id)
-                        turn_id.append(t_id)
-                # ########################################################################    
+                schema.append('general-question')
+                answer.append(a)
+                question.append(q)
+                dial_id.append(d_id)
+                turn_id.append(t_id)
+                ########################################################################    
                 gold_belief_state[d_id][t_id] = turn['belief']
                 gold_context[d_id][t_id] = dialogue_text
                 
@@ -154,7 +150,7 @@ class Dataset(torch.utils.data.Dataset):
         
         
         # sort guaranteed to be stable : it is important because of question!   
-        assert schema_sort == schema
+        # assert schema_sort == schema
         return turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say
 
     def __getitem__(self, index):
@@ -171,24 +167,26 @@ class Dataset(torch.utils.data.Dataset):
         return {"target": target,"turn_id" : turn_id,"question" : question, "gold_context" : gold_context,\
             "dial_id" : dial_id, "schema":schema,  "gold_belief_state" : gold_belief_state }
     
-
-    # def make_history(self, dial_id, turn_id):
-    #     text = ''
-    #     for i in range(0,turn_id):
-    #         text += f'[user] {self.user_say[dial_id][i]}'
-    #         text += f'[sys] {self.sys_say[dial_id][i]}'
-        
-    #     text += f'[user] {self.user_say[dial_id][turn_id]}'
-
-    #     return text
-    
-    
     def _belief_clean(self, belief_dict):
         clean_belief = str(belief_dict).replace('{','').replace('}','')
         clean_belief = clean_belief.replace("'","")
         clean_belief = clean_belief.replace(":", " is")
         clean_belief = clean_belief.replace("-", " ")
+        if clean_belief == '':
+            clean_belief = "none"
         return clean_belief
+    
+    
+    def _make_input_source(self, question, belief, history, schema):
+        input_source = []
+        for q,h,b,s in zip(question, history, belief, schema):
+            if s == 'general-question':
+                text = f"{q} context : {h} belief : {self._belief_clean(b)}"
+            else:
+                text = f"question : {q} context : {h} belief : {self._belief_clean(b)}"
+            input_source.append(text)
+        return input_source
+    
     
     def collate_fn(self, batch):
         """
@@ -213,8 +211,8 @@ class Dataset(torch.utils.data.Dataset):
             belief = [self.gold_belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
         
         history = [self.gold_context[d][t] for (d,t) in zip(dial_id, turn_id)]
-        input_source = [f"question : {q} context : {c} belief : {self._belief_clean(b)}" for (q,c,b) in  \
-            zip(question, history, belief)]
+        
+        input_source = self._make_input_source(question, belief, history, schema)
         
         source = self.encode(input_source)
         source_list = [{k:v.squeeze() for (k,v) in s.items()} for s in source]
@@ -239,7 +237,7 @@ if __name__ == '__main__':
     parser.add_argument('--dst_student_rate' ,  type = float, default=0.5)
     parser.add_argument('--res_student_rate' ,  type = float, default=0.5)
     parser.add_argument('--seed' ,  type = float, default=1)
-    parser.add_argument('--max_length' ,  type = float, default=128)
+    parser.add_argument('--max_length' ,  type = int, default=128)
     parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
     parser.add_argument('--base_trained', type = str, default = "google/t5-small-ssm-nq", help =" pretrainned model from 🤗")
 
