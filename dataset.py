@@ -17,6 +17,7 @@ logger = logging.getLogger("my")
 class Dataset(torch.utils.data.Dataset):
     def __init__(self, args, data_path, data_type):
         random.seed(args.seed)
+        self.aux = args.aux
         self.data_type = data_type
         self.tokenizer = args.tokenizer
         self.dst_student_rate = args.dst_student_rate
@@ -120,7 +121,7 @@ class Dataset(torch.utils.data.Dataset):
                     dial_id.append(d_id)
                     turn_id.append(t_id)
                 # ###########changed part ###########################################
-                if self.data_type == 'train':
+                if self.data_type == 'train' and self.aux == 1:
                     for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
                         domain_name = " ".join(key.split("-"))
                         q = ontology.QA["general-question"] + " "+domain_name + "?" 
@@ -233,9 +234,9 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--data_rate' ,  type = float, default=0.01)
+    parser.add_argument('--data_rate' ,  type = float, default=0.1)
     parser.add_argument('--student_rate' ,  type = float, default=0.2)
-    parser.add_argument('--do_short' ,  type = int, default=1)
+    parser.add_argument('--do_short' ,  type = int, default=0)
     parser.add_argument('--dst_student_rate' ,  type = float, default=0.5)
     parser.add_argument('--res_student_rate' ,  type = float, default=0.5)
     parser.add_argument('--seed' ,  type = float, default=1)
@@ -249,6 +250,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     args.data_path = '../woz-data/MultiWOZ_2.1/train_data0.001.json'
+    args.data_path = '../woz-data/MultiWOZ_2.1/train_data.json'
+    
     from transformers import T5Tokenizer
     args.tokenizer = T5Tokenizer.from_pretrained('t5-small')
     with open(args.never_split_file, "r") as f:
