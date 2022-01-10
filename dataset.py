@@ -55,8 +55,8 @@ class Dataset(torch.utils.data.Dataset):
         assert len(turn_id) == len(dial_id) == len(question)\
             == len(schema) == len(answer)
             
-        self.answer = answer # for debugging
         self.target = self.encode(answer)
+        self.label = ['x' if x == 'not mentioned' else 'o' for x in answer]
         self.turn_id = turn_id
         self.dial_id = dial_id
         self.question = question
@@ -66,7 +66,9 @@ class Dataset(torch.utils.data.Dataset):
         self.gold_context = gold_context
             
             
-            
+    def get_labels(self):
+        return self.label
+        
     def encode(self, texts ,return_tensors="pt"):
         examples = []
         for i, text in enumerate(texts):
@@ -121,21 +123,21 @@ class Dataset(torch.utils.data.Dataset):
                     dial_id.append(d_id)
                     turn_id.append(t_id)
                 # ###########changed part ###########################################
-                if self.data_type == 'train' and self.aux == 1:
-                    for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
-                        domain_name = " ".join(key.split("-"))
-                        q = ontology.QA["general-question"] + " "+domain_name + "?" 
-                        c = dialogue_text
-                        if key in turn['belief']: # 언급을 한 경우
-                            a = 'yes'
-                        else:
-                            a = 'no'
+                # if self.data_type == 'train' and self.aux == 1:
+                #     for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
+                #         domain_name = " ".join(key.split("-"))
+                #         q = ontology.QA["general-question"] + " "+domain_name + "?" 
+                #         c = dialogue_text
+                #         if key in turn['belief']: # 언급을 한 경우
+                #             a = 'yes'
+                #         else:
+                #             a = 'no'
 
-                        schema.append(key)
-                        answer.append(a)
-                        question.append(q)
-                        dial_id.append(d_id)
-                        turn_id.append(t_id)
+                #         schema.append(key)
+                #         answer.append(a)
+                #         question.append(q)
+                #         dial_id.append(d_id)
+                #         turn_id.append(t_id)
                 # ########################################################################    
                 gold_belief_state[d_id][t_id] = turn['belief']
                 gold_context[d_id][t_id] = dialogue_text
@@ -165,11 +167,12 @@ class Dataset(torch.utils.data.Dataset):
         question = self.question[index]
         gold_context = self.gold_context[index]
         gold_belief_state = self.gold_belief_state[index]
+        label = self.label[index]
         
         
         target = {k:v.squeeze() for (k,v) in self.target[index].items()}
         
-        return {"target": target,"turn_id" : turn_id,"question" : question, "gold_context" : gold_context,\
+        return {"target": target, "label" : label, "turn_id" : turn_id,"question" : question, "gold_context" : gold_context,\
             "dial_id" : dial_id, "schema":schema,  "gold_belief_state" : gold_belief_state }
     
 
@@ -187,7 +190,7 @@ class Dataset(torch.utils.data.Dataset):
     def _belief_clean(self, belief_dict):
         clean_belief = str(belief_dict).replace('{','').replace('}','')
         clean_belief = clean_belief.replace("'","")
-        clean_belief = clean_belief.replace(":", " is")
+        # clean_belief = clean_belief.replace(":", " is")
         clean_belief = clean_belief.replace("-", " ")
         return clean_belief
     
@@ -207,6 +210,8 @@ class Dataset(torch.utils.data.Dataset):
         question = [x["question"] for x in batch]
         schema = [x["schema"] for x in batch]
         target_list = [x["target"] for x in batch]
+        label = [x["label"] for x in batch]
+        
         
         if do_dst_student or self.data_type == 'test':
             belief = [self.belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
@@ -223,8 +228,8 @@ class Dataset(torch.utils.data.Dataset):
         pad_source = self.tokenizer.pad(source_list,padding=True)
         pad_target = self.tokenizer.pad(target_list,padding=True)
         
-        return {"input": pad_source, "target": pad_target,\
-                 "schema":schema, "dial_id":dial_id, "turn_id":turn_id}
+        return {"input": pad_source, "target": pad_target, "label" : label, \
+                "schema":schema, "dial_id":dial_id, "turn_id":turn_id}
         
 
 if __name__ == '__main__':
@@ -243,6 +248,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_length' ,  type = float, default=128)
     parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
     parser.add_argument('--base_trained', type = str, default = "google/t5-small-ssm-nq", help =" pretrainned model from 🤗")
+    parser.add_argument('--aux', type = int, default = 1, help ="pretrainned model from 🤗")
 
     
     

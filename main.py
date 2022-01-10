@@ -15,6 +15,7 @@ import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.nn.parallel import DistributedDataParallel as DDP
 from transformers import T5Tokenizer, T5ForConditionalGeneration,Adafactor
+from torchsampler import ImbalancedDatasetSampler
 
 parser = argparse.ArgumentParser()
 
@@ -48,13 +49,16 @@ args = parser.parse_args()
 init.init_experiment(args)
 logger = logging.getLogger("my")
        
-def get_loader(dataset,batch_size):
-    train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
+def get_loader(dataset,batch_size, data_type):
+    if data_type == 'train':
+        sampler = ImbalancedDatasetSampler(dataset)
+    else:
+        sampler = torch.utils.data.distributed.DistributedSampler(dataset)
     shuffle = False
     pin_memory = True
     loader = torch.utils.data.DataLoader(
         dataset=dataset, batch_size=batch_size, pin_memory=pin_memory,
-        num_workers=0, shuffle=shuffle, sampler=train_sampler,  collate_fn=dataset.collate_fn)
+        num_workers=0, shuffle=shuffle, sampler=sampler,  collate_fn=dataset.collate_fn)
     return loader       
        
 def main_worker(gpu, args):
@@ -76,9 +80,8 @@ def main_worker(gpu, args):
     
     train_dataset =Dataset(args, args.train_path, 'train')
     val_dataset =Dataset(args, args.dev_path, 'val')
-    
-    train_loader = get_loader(train_dataset, batch_size)
-    dev_loader = get_loader(val_dataset, batch_size)
+    train_loader = get_loader(train_dataset, batch_size, 'train')
+    dev_loader = get_loader(val_dataset, batch_size, 'val')
     
     optimizer = Adafactor(model.parameters(),lr=1e-3,
                     eps=(1e-30, 1e-3),
@@ -115,6 +118,7 @@ def main_worker(gpu, args):
     
 def evaluate():
     test_dataset =Dataset(args, args.test_path, 'test')
+    import pdb; pdb.set_trace()
     
     
     loader = torch.utils.data.DataLoader(
