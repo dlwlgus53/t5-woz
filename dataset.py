@@ -22,17 +22,12 @@ class Dataset(torch.utils.data.Dataset):
         self.tokenizer = args.tokenizer
         self.dst_student_rate = args.dst_student_rate
         self.max_length = args.max_length
+        self.zeroshot_domain = args.zeroshot_domain
         
-        # prev_belief_state['woz001'][0] :  belief state of turn 0
-        # prev_belief_state['woz001'][1] : belief state of turn 1
         self.belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         self.gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         
 
-        # answer to user_say
-        # sys_say['woz001'][0] : '[sys] 3개의 후보가 있네요, 어떤걸 원하세요?
-        # sys_say['woz001'][1] : '[sys] 그쪽으로 예약해 드릴게요'
-        # self.sys_say= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id # 이상할지도 TODO
         self.gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
         
         self.data_type = data_type
@@ -84,7 +79,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.dial_id)
-
+    
     def seperate_data(self, dataset):
         # 만들어질땐 response가 delex이고 예측일땐 delex아니고 그렇게 되어있나??
         # user_say don't need sort. Has a key
@@ -107,6 +102,14 @@ class Dataset(torch.utils.data.Dataset):
                 dialogue_text += turn['user']
                 user_say[d_id][t_id] = turn['user']
                 for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
+                    domain = key.split("-")[0]
+                    
+                    if self.zeroshot_domain and \
+                        self.data_type != 'test' and domain == self.zeroshot_domain: continue
+                        
+                    if self.zeroshot_domain and \
+                        self.data_type == 'test' and domain != self.zeroshot_domain: continue
+                    
                     q = ontology.QA[key]['description']
                     c = dialogue_text
                     if key in turn['belief']: # 언급을 한 경우
@@ -123,6 +126,8 @@ class Dataset(torch.utils.data.Dataset):
                 # ###########changed part ###########################################
                 if self.data_type == 'train' and self.aux == 1:
                     for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
+                        domain = key.split("-")[0]
+                        if self.zeroshot_domain and domain == self.zeroshot_domain: continue
                         domain_name = " ".join(key.split("-"))
                         q = ontology.QA["general-question"] + " "+domain_name + "?" 
                         c = dialogue_text
@@ -243,9 +248,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_length' ,  type = float, default=128)
     parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
     parser.add_argument('--base_trained', type = str, default = "google/t5-small-ssm-nq", help =" pretrainned model from 🤗")
-
-    
-    
+    parser.add_argument('--zeroshot_domain', type=str, help='zeroshot option')
     
     args = parser.parse_args()
 
