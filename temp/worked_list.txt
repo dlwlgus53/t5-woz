@@ -1,0 +1,3 @@
+MUL0484,0,train-destination
+MUL0484,0,train-departure
+MUL0484,2,train-day
