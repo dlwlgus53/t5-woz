@@ -45,6 +45,7 @@ parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the 
 parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
 parser.add_argument('--aux',  default=1, type=int, help='number of gpus per node')
 parser.add_argument('--zeroshot_domain', type=str, choices=["restaurant", "hotel", "attraction", "train", "taxi"],help='restaurant|hotel|attraction|train|taxi')
+parser.add_argument('--temp_folder', type=str, default = './looptemp')
 
 
 

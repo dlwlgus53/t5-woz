@@ -23,12 +23,12 @@ class Dataset(torch.utils.data.Dataset):
         self.raw_dataset = json.load(open(args.untagged , "r"))
         if data_type == 'tag':
             # pass in this list
-            with open('./temp/worked_list.txt', "r") as file:
+            with open(f'{args.temp_folder}/worked_list.txt', "r") as file:
                 index = file.read().splitlines()
                 index =[i.split(",") for i in index]
             
         elif data_type == 'train':
-            index = self.load_c_file("./temp/confidence/") # read all confidence list
+            index = self.load_c_file(f"{args.temp_folder}/confidence/") # read all confidence list
 
         turn_id, dial_id,  question, schema, answer = self.seperate_data(self.raw_dataset, index)
 
@@ -171,6 +171,7 @@ if __name__ == '__main__':
     logger = logging.getLogger("my")
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('--temp_folder', type=str, default = './looptemp')
 
     parser.add_argument('--do_short' ,  type = int, default=1)
     parser.add_argument('--seed' ,  type = float, default=1)
