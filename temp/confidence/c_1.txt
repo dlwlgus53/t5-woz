@@ -1,3 +1,0 @@
-MUL0484, 2, train-departure
-MUL0484, 3, train-day
-aa
