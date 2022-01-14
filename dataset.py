@@ -23,13 +23,9 @@ class Dataset(torch.utils.data.Dataset):
         self.dst_student_rate = args.dst_student_rate
         self.max_length = args.max_length
         self.zeroshot_domain = args.zeroshot_domain
-        
         self.belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         self.gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
-        
-
         self.gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
-        
         self.data_type = data_type
         
         
@@ -81,8 +77,6 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.dial_id)
     
     def seperate_data(self, dataset):
-        # 만들어질땐 response가 delex이고 예측일땐 delex아니고 그렇게 되어있나??
-        # user_say don't need sort. Has a key
         user_say= defaultdict(lambda : defaultdict(str)) 
         gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
@@ -177,18 +171,6 @@ class Dataset(torch.utils.data.Dataset):
         return {"target": target,"turn_id" : turn_id,"question" : question, "gold_context" : gold_context,\
             "dial_id" : dial_id, "schema":schema,  "gold_belief_state" : gold_belief_state }
     
-
-    # def make_history(self, dial_id, turn_id):
-    #     text = ''
-    #     for i in range(0,turn_id):
-    #         text += f'[user] {self.user_say[dial_id][i]}'
-    #         text += f'[sys] {self.sys_say[dial_id][i]}'
-        
-    #     text += f'[user] {self.user_say[dial_id][turn_id]}'
-
-    #     return text
-    
-    
     def _belief_clean(self, belief_dict):
         clean_belief = str(belief_dict).replace('{','').replace('}','')
         clean_belief = clean_belief.replace("'","")
@@ -204,18 +186,15 @@ class Dataset(torch.utils.data.Dataset):
         belief_state = self.belief_state[index]
         """
         
-        do_dst_student = (random.random() < self.dst_student_rate)
-        
-        
         dial_id = [x["dial_id"] for x in batch]
         turn_id = [x["turn_id"] for x in batch]
         question = [x["question"] for x in batch]
         schema = [x["schema"] for x in batch]
         target_list = [x["target"] for x in batch]
         
-        if do_dst_student or self.data_type == 'test':
+        if self.data_type == 'test':
             belief = [self.belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
-        else:
+        elif self.data_type == 'train' or self.data_type == 'val':
             belief = [self.gold_belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
         
         history = [self.gold_context[d][t] for (d,t) in zip(dial_id, turn_id)]
@@ -240,8 +219,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--data_rate' ,  type = float, default=0.1)
-    parser.add_argument('--student_rate' ,  type = float, default=0.2)
-    parser.add_argument('--do_short' ,  type = int, default=0)
+    parser.add_argument('--student_rate' ,  type = float, default=0.0)
+    parser.add_argument('--do_short' ,  type = int, default=1)
     parser.add_argument('--dst_student_rate' ,  type = float, default=0.5)
     parser.add_argument('--res_student_rate' ,  type = float, default=0.5)
     parser.add_argument('--seed' ,  type = float, default=1)
@@ -249,10 +228,9 @@ if __name__ == '__main__':
     parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
     parser.add_argument('--base_trained', type = str, default = "google/t5-small-ssm-nq", help =" pretrainned model from 🤗")
     parser.add_argument('--zeroshot_domain', type=str, help='zeroshot option')
+    parser.add_argument('--aux', type=int,default = 1)
     
     args = parser.parse_args()
-
-    args.data_path = '../woz-data/MultiWOZ_2.1/train_data0.001.json'
     args.data_path = '../woz-data/MultiWOZ_2.1/train_data.json'
     
     from transformers import T5Tokenizer
@@ -264,10 +242,11 @@ if __name__ == '__main__':
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
     args.tokenizer.add_special_tokens(special_tokens_dict)
     
-    dataset = Dataset(args, args.data_path, 'train')
+    dataset = Dataset(args, args.data_path, 'test')
     loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=16, collate_fn=dataset.collate_fn)
-    
+    t  = args.tokenizer
     for batch in loader:
+        print(t.decode(batch['input']['input_ids'][5]))
         pdb.set_trace()
     
     
