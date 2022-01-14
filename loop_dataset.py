@@ -1,3 +1,4 @@
+# for trainning loop
 import re
 import pdb
 import json
@@ -12,59 +13,37 @@ from collections import defaultdict
 import random
 
 
-
 logger = logging.getLogger("my")
 class Dataset(torch.utils.data.Dataset): # None 출력되도록
-    def __init__(self, args, data_path, data_type, epoch = None):
+    def __init__(self, args, file_path, data_type, confidence_list=None, worked_file=None):
         random.seed(args.seed)
-        self.aux = args.aux
-        self.data_type = data_type
+        self.data_type = data_type # tag, train
         self.tokenizer = args.tokenizer
-        self.dst_student_rate = args.dst_student_rate
         self.max_length = args.max_length
         self.zeroshot_domain = args.zeroshot_domain
         
-        self.belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
-        self.gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
+        logger.info(f"load raw file in loop dataset.py {args.untagged}")
+        raw_dataset = json.load(open(args.untagged , "r"))
         
+        if data_type == 'tag':
+            # pass in this list
+            worked_index = load_file(worked_list)
+            
+        elif data_type == 'train':
+            # work only in here
+            work_index = load_file(confidence_folder) # read all confidence list
 
-        self.gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
-        
-        self.data_type = data_type
-        
-        
-        if self.data_type == 'train':
-            raw_path = f'{data_path[:-5]}{args.data_rate}.json'
-        else:
-            raw_path = f'{data_path[:-5]}.json'
-        
-        
-        if args.do_short:
-            raw_path = f'../woz-data/MultiWOZ_2.1/train_data0.001.json' 
-                
-
-        logger.info(f"load {self.data_type} raw file {raw_path}")
-        raw_dataset = json.load(open(raw_path , "r"))
-        turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say= self.seperate_data(raw_dataset)
+        turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say= self.seperate_data(raw_dataset, index)
 
         assert len(turn_id) == len(dial_id) == len(question)\
             == len(schema) == len(answer)
             
-        self.stop = True if len(turn_id)<500 else False # 500 이하면 stop trainning, train 시에만 영향
-        self.answer = answer # for debugging
+        self.answer = answer
         self.target = self.encode(answer)
         self.turn_id = turn_id
         self.dial_id = dial_id
         self.question = question
         self.schema = schema
-        self.user_say = user_say
-        self.gold_belief_state = gold_belief_state
-        self.gold_context = gold_context
-            
-    
-    def read_tempfile(self, path):
-        summed = {}
-        
             
     def encode(self, texts ,return_tensors="pt"):
         examples = []
@@ -84,13 +63,18 @@ class Dataset(torch.utils.data.Dataset): # None 출력되도록
     def __len__(self):
         return len(self.dial_id)
     
-    def seperate_data(self, dataset):
-        # 만들어질땐 response가 delex이고 예측일땐 delex아니고 그렇게 되어있나??
-        # user_say don't need sort. Has a key
-        user_say= defaultdict(lambda : defaultdict(str)) 
-        gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
-        gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
-        
+    
+    def is_in_index(index_file, index):
+        for i in index_file:
+            # dial_id, turn_id, schema_id
+            if i[0] == index[0] and\
+                i[1] == index[1] and\
+                i[2] == index[2]:
+                    return True            
+        return False
+    
+    
+    def seperate_data(self, dataset, index):
         question = []
         answer = []
         schema = []
@@ -104,8 +88,7 @@ class Dataset(torch.utils.data.Dataset): # None 출력되도록
             for t_id, turn in enumerate(dialogue):
                 dialogue_text += ' [user] '
                 dialogue_text += turn['user']
-                user_say[d_id][t_id] = turn['user']
-                for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
+                for key_idx, key in enumerate(ontology.QA['all-domain']):
                     domain = key.split("-")[0]
                     
                     if self.zeroshot_domain and \
@@ -127,28 +110,6 @@ class Dataset(torch.utils.data.Dataset): # None 출력되도록
                     question.append(q)
                     dial_id.append(d_id)
                     turn_id.append(t_id)
-                # ###########changed part ###########################################
-                if self.data_type == 'train' and self.aux == 1:
-                    for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
-                        domain = key.split("-")[0]
-                        if self.zeroshot_domain and domain == self.zeroshot_domain: continue
-                        domain_name = " ".join(key.split("-"))
-                        q = ontology.QA["general-question"] + " "+domain_name + "?" 
-                        c = dialogue_text
-                        if key in turn['belief']: # 언급을 한 경우
-                            a = 'yes'
-                        else:
-                            a = 'no'
-
-                        schema.append(key)
-                        answer.append(a)
-                        question.append(q)
-                        dial_id.append(d_id)
-                        turn_id.append(t_id)
-                # ########################################################################    
-                gold_belief_state[d_id][t_id] = turn['belief']
-                gold_context[d_id][t_id] = dialogue_text
-                
                 dialogue_text += ' [sys] '
                 dialogue_text += turn['response']
                 
@@ -165,7 +126,7 @@ class Dataset(torch.utils.data.Dataset): # None 출력되도록
         
         # sort guaranteed to be stable : it is important because of question!   
         assert schema_sort == schema
-        return turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say
+        return turn_id, dial_id,  question, schema, answer
 
     def __getitem__(self, index):
         dial_id = self.dial_id[index]
@@ -173,24 +134,12 @@ class Dataset(torch.utils.data.Dataset): # None 출력되도록
         schema = self.schema[index]
         question = self.question[index]
         gold_context = self.gold_context[index]
-        gold_belief_state = self.gold_belief_state[index]
         
         
         target = {k:v.squeeze() for (k,v) in self.target[index].items()}
         
         return {"target": target,"turn_id" : turn_id,"question" : question, "gold_context" : gold_context,\
-            "dial_id" : dial_id, "schema":schema,  "gold_belief_state" : gold_belief_state }
-    
-
-    # def make_history(self, dial_id, turn_id):
-    #     text = ''
-    #     for i in range(0,turn_id):
-    #         text += f'[user] {self.user_say[dial_id][i]}'
-    #         text += f'[sys] {self.sys_say[dial_id][i]}'
-        
-    #     text += f'[user] {self.user_say[dial_id][turn_id]}'
-
-    #     return text
+            "dial_id" : dial_id, "schema":schema}
     
     
     def _belief_clean(self, belief_dict):
@@ -201,8 +150,16 @@ class Dataset(torch.utils.data.Dataset): # None 출력되도록
         return clean_belief
     
     def collate_fn(self, batch):
+        """
+        The tensors are stacked together as they are yielded.
+        Collate function is applied to the output of a DataLoader as it is yielded.
+        context = self.context[index]
+        belief_state = self.belief_state[index]
+        """
+        
         do_dst_student = (random.random() < self.dst_student_rate)
-
+        
+        
         dial_id = [x["dial_id"] for x in batch]
         turn_id = [x["turn_id"] for x in batch]
         question = [x["question"] for x in batch]
