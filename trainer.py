@@ -42,15 +42,12 @@ def train(args, gpu, model, train_loader, optimizer, train_dataset):
                 loss.detach())
             )
         
-
-def valid(args, gpu, model, dev_loader, data_rate, val_dataset):
+def tag(args, gpu, model, dev_loader,val_dataset):
     model.eval()
     loss_sum = 0
     logger.info("Validation start")
     with torch.no_grad():
         for iter,batch in enumerate(dev_loader):
-            if iter/len(dev_loader) > data_rate:
-                break
             input_ids = batch['input']['input_ids'].to(f'cuda:{gpu}')
             labels = batch['target']['input_ids'].to(f'cuda:{gpu}')
         

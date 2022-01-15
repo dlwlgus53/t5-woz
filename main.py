@@ -10,7 +10,7 @@ from loopdataset import LoopDataset
 import init
 
 from collections import OrderedDict
-from trainer import valid, train, test
+from trainer import valid, train, test, tag
 from torch.utils.data import DataLoader
 
 import torch.distributed as dist
@@ -101,6 +101,8 @@ def main_worker(gpu, args):
 def loop_worker(gpu, args):
     logger.info(f'In loop, {gpu} works!')
     batch_size = int(args.batch_size / args.gpus)
+    test_batch_size = int(args.test_batch_size / args.gpus)
+    
     torch.distributed.init_process_group(
         backend='nccl',
         init_method=f'tcp://127.0.0.1:{args.port}',
@@ -126,38 +128,29 @@ def loop_worker(gpu, args):
     logger.info("Tag start")
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
     model = load_trained(args,model)
-    
-    # dataset = untagged(remove worked list)
-    
-    # untagged =untagged_dataset(args, args.untagged, 'train') # None or not
-    
-    # # high_confidence = tag(untagged)
-    # high_confidence = tag(untagged)
-    # # save in temp, high_confidence list as worked list
-    # save_list(high_confidence)
-    
-    # # dataset = trainabel(high_confidence)
-    # loop_train_dataset = LoopDatset(args, data_type)
-    
-    # # train(high_confidence)
-    # train(loop_train_dataset)
-    # save_model(model)
-    # json.dump(high_confidence, outfile, indent=4)
-    # train_dataset =loop_train(args, args.train_path, 'train', epoch) # None or not
-    # if train_dataset.stop:
-    #     break
-    # train_loader = get_loader(train_dataset, batch_size)
-    # if gpu==0: logger.info(f"Epoch : {epoch}")
-    # high_confidence = train(args, gpu, model, train_loader, optimizer, train_dataset)
-    
-    # with open(f'./temp/tagged/{gpu}.json', 'w') as outfile:
-    #     json.dump(high_confidence, outfile, indent=4)
+    tag_dataset = LoopDataset(args, 'tag')
+    tag_loader = get_loader(tag_dataset, test_batch_size)
+    high_confidence = tag(args, gpu, model, tag_loader, tag_dataset)
 
-    # if gpu == 0:
-    #     if not args.debugging:
-    #         torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}.pt")
-    #         logger.info("safely saved")
-    # dist.barrier()
+    with open(f"{args.temp_folder}\confidence\c_{gpu}.txt", 'w') as f:
+        for item in high_confidence:
+            f.write(','.join(item))
+            
+    with open(f"{args.temp_folder}/worked_list.txt", 'a') as f:
+        for item in high_confidence:
+            f.write(','.join(item))
+    dist.barrier()
+
+    ctrain_dataset =LoopDataset(args,'train') # None or not
+    ctrain_loader = get_loader(ctrain_dataset, batch_size)
+    train(args, gpu, model, ctrain_loader, optimizer, ctrain_dataset)
+
+    if gpu == 0:
+        if not args.debugging:
+            torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}.pt")
+            logger.info("safely saved")
+
+    dist.barrier()
 
 
 
