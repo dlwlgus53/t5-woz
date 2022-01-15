@@ -13,7 +13,7 @@ from collections import defaultdict
 import random
 
 logger = logging.getLogger("my")
-class Dataset(torch.utils.data.Dataset): 
+class LoopDataset(torch.utils.data.Dataset): 
     def __init__(self, args, data_type):
         random.seed(args.seed)
         self.data_type = data_type # tag, train

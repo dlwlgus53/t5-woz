@@ -181,17 +181,6 @@ class Dataset(torch.utils.data.Dataset): # None 출력되도록
         return {"target": target,"turn_id" : turn_id,"question" : question, "gold_context" : gold_context,\
             "dial_id" : dial_id, "schema":schema,  "gold_belief_state" : gold_belief_state }
     
-
-    # def make_history(self, dial_id, turn_id):
-    #     text = ''
-    #     for i in range(0,turn_id):
-    #         text += f'[user] {self.user_say[dial_id][i]}'
-    #         text += f'[sys] {self.sys_say[dial_id][i]}'
-        
-    #     text += f'[user] {self.user_say[dial_id][turn_id]}'
-
-    #     return text
-    
     
     def _belief_clean(self, belief_dict):
         clean_belief = str(belief_dict).replace('{','').replace('}','')

@@ -6,6 +6,7 @@ import logging
 import argparse
 import datetime
 from dataset import Dataset
+from loopdataset import LoopDataset
 import init
 
 from collections import OrderedDict
@@ -21,6 +22,7 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--data_rate' ,  type = float, default=0.01)
 parser.add_argument('--do_train' ,  type = int, default=1)
+parser.add_argument('--do_loop' ,  type = int, default=0)
 parser.add_argument('--do_short' ,  type = int, default=1)
 parser.add_argument('--do_test' ,  type = int, default=1)
 parser.add_argument('--max_length' ,  type = int, default=128)
@@ -46,9 +48,6 @@ parser.add_argument('--never_split_file',  default='./asset/never_split.txt', ty
 parser.add_argument('--aux',  default=1, type=int, help='number of gpus per node')
 parser.add_argument('--zeroshot_domain', type=str, choices=["restaurant", "hotel", "attraction", "train", "taxi"],help='restaurant|hotel|attraction|train|taxi')
 parser.add_argument('--temp_folder', type=str, default = './looptemp')
-
-
-
 args = parser.parse_args()
 init.init_experiment(args)
 logger = logging.getLogger("my")
@@ -75,7 +74,6 @@ def main_worker(gpu, args):
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
     model.resize_token_embeddings(len(args.tokenizer))
     model = DDP(model, device_ids=[gpu])
-        
     optimizer = Adafactor(model.parameters(),lr=1e-3,
                     eps=(1e-30, 1e-3),
                     clip_threshold=1.0,
@@ -85,8 +83,8 @@ def main_worker(gpu, args):
                     relative_step=False,
                     scale_parameter=False,
                     warmup_init=False)
-
     logger.info("Trainning start")
+    
     for epoch in range(args.max_epoch):
         train_dataset =Dataset(args, args.train_path, 'train', epoch) # None or not
         train_loader = get_loader(train_dataset, batch_size)
@@ -103,16 +101,15 @@ def main_worker(gpu, args):
 def loop_worker(gpu, args):
     logger.info(f'In loop, {gpu} works!')
     batch_size = int(args.batch_size / args.gpus)
-    
     torch.distributed.init_process_group(
         backend='nccl',
         init_method=f'tcp://127.0.0.1:{args.port}',
         world_size=args.gpus,
         rank=gpu)
-    
     torch.cuda.set_device(gpu)
-
+    
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
+    model = load_trained(args, model)
     model.resize_token_embeddings(len(args.tokenizer))
     model = DDP(model, device_ids=[gpu])
         
@@ -127,59 +124,55 @@ def loop_worker(gpu, args):
                     warmup_init=False)
 
     logger.info("Tag start")
-    # load_model(from trained)
-    model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
-    logger.info(f"load pretrained model{args.pretrained_model} in loop")
-    model = load_trained(model)
+    model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
+    model = load_trained(args,model)
+    
     # dataset = untagged(remove worked list)
     
-    untagged =untagged_dataset(args, args.untagged, 'train') # None or not
+    # untagged =untagged_dataset(args, args.untagged, 'train') # None or not
     
+    # # high_confidence = tag(untagged)
     # high_confidence = tag(untagged)
-    high_confidence = tag(untagged)
-    # save in temp, high_confidence list as worked list
-    save_list(high_confidence)
+    # # save in temp, high_confidence list as worked list
+    # save_list(high_confidence)
     
-    # dataset = trainabel(high_confidence)
-    loop_train_dataset = loop_dataset(high_confidence)
+    # # dataset = trainabel(high_confidence)
+    # loop_train_dataset = LoopDatset(args, data_type)
     
-    # train(high_confidence)
-    train(loop_train_dataset)
+    # # train(high_confidence)
+    # train(loop_train_dataset)
+    # save_model(model)
+    # json.dump(high_confidence, outfile, indent=4)
+    # train_dataset =loop_train(args, args.train_path, 'train', epoch) # None or not
+    # if train_dataset.stop:
+    #     break
+    # train_loader = get_loader(train_dataset, batch_size)
+    # if gpu==0: logger.info(f"Epoch : {epoch}")
+    # high_confidence = train(args, gpu, model, train_loader, optimizer, train_dataset)
     
-    save_model(model)
-    
-    
-    json.dump(high_confidence, outfile, indent=4)
-            
-            
-            
-    train_dataset =loop_train(args, args.train_path, 'train', epoch) # None or not
-    if train_dataset.stop:
-        break
-    train_loader = get_loader(train_dataset, batch_size)
-    if gpu==0: logger.info(f"Epoch : {epoch}")
-    high_confidence = train(args, gpu, model, train_loader, optimizer, train_dataset)
-    
-    with open(f'./temp/tagged/{gpu}.json', 'w') as outfile:
-        json.dump(high_confidence, outfile, indent=4)
+    # with open(f'./temp/tagged/{gpu}.json', 'w') as outfile:
+    #     json.dump(high_confidence, outfile, indent=4)
 
-    if gpu == 0:
-        if not args.debugging:
-            torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}.pt")
-            logger.info("safely saved")
-    dist.barrier()
+    # if gpu == 0:
+    #     if not args.debugging:
+    #         torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}.pt")
+    #         logger.info("safely saved")
+    # dist.barrier()
 
 
 
-def load_trained(model):
+def load_trained(args,model):
+    logger.info(f"User pretrained model{args.pretrained_model}")
+    
     state_dict = torch.load(args.pretrained_model)
     new_state_dict = OrderedDict()
     
     for k, v in state_dict.items():
         name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
-    new_state_dict[name] = v
+        new_state_dict[name] = v
     model.resize_token_embeddings(len(args.tokenizer))
     model.load_state_dict(new_state_dict)
+    return model
     
     
 def evaluate(): # 여기는 건들 것 없지
@@ -192,7 +185,7 @@ def evaluate(): # 여기는 건들 것 없지
     
     if args.pretrained_model:
         logger.info(f"User pretrained model{args.pretrained_model}")
-        model = load_trained(model)
+        model = load_trained(args,model)
     
     joint_goal_acc, slot_acc, domain_acc, schema_acc, detail_wrong, loss = test(args, model, loader, test_dataset)
     
@@ -229,7 +222,9 @@ def main():
                 join=True)
         except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
             logger.error(e)
-    evaluate()
+            print(e)
+            
+    # evaluate()
     
     
     if args.do_loop:
@@ -241,7 +236,9 @@ def main():
                     join=True)
             except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
                 logger.error(e)
-            evaluate()
+                print(e)
+            # evaluate()
+            break
             
 
 
