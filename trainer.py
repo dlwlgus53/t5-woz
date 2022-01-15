@@ -5,7 +5,7 @@ import logging
 import ontology
 from utils import*
 from collections import defaultdict
-
+from queue import PriorityQueue
 from utils import save_pickle
 
 logger = logging.getLogger("my")
@@ -41,40 +41,46 @@ def train(args, gpu, model, train_loader, optimizer, train_dataset):
                 str(len(train_loader)),
                 loss.detach())
             )
-        
-def tag(args, gpu, model, dev_loader,val_dataset):
+
+
+def tag(args, model, gpu, tag_loader,self_step):
+    confidence_list = []
     model.eval()
-    loss_sum = 0
-    logger.info("Validation start")
+    que = PriorityQueue()
     with torch.no_grad():
-        for iter,batch in enumerate(dev_loader):
-            input_ids = batch['input']['input_ids'].to(f'cuda:{gpu}')
-            labels = batch['target']['input_ids'].to(f'cuda:{gpu}')
-        
-            output = model(input_ids=input_ids, labels=labels)
-            outputs_text = model.module.generate(input_ids=input_ids)
-            outputs_text = [args.tokenizer.decode(o).replace('</s>','').replace('<pad>','').strip() for o in outputs_text]
-        
+        for iter,batch in enumerate(tag_loader):
+            outputs = model(input_ids=batch['input']['input_ids'].to(f'cuda:{gpu}'), labels=batch['target']['input_ids'].to(f'cuda:{gpu}'))
+            logits = outputs.logits.to('cpu')
             
-            for idx in range(len(outputs_text)):
-                if outputs_text[idx] == ontology.QA['NOT_MENTIONED'] : continue
+            for idx, logit in enumerate(logits):
                 dial_id = batch['dial_id'][idx]
                 turn_id = batch['turn_id'][idx]
                 schema = batch['schema'][idx]
-                val_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
-
-
-            loss_sum += output.loss.detach()
-            if (iter + 1) % 50 == 0 and gpu == 0:
-                logger.info('step : {}/{} Loss: {:.4f}'.format(
-                iter, 
-                str(len(dev_loader)),
-                output.loss.detach()
+                ans_confidence =0 
+                id_list = [dial_id, str(turn_id), schema]
+                for word_idx, word in enumerate(logit):
+                    id = int(torch.argmax(word))
+                    value = float(torch.max(word))
+                    ans_confidence += value
+                    if id == args.tokenizer.eos_token_id:
+                        ans_confidence = -(ans_confidence/(word_idx+1)) # for priority
+                        break
+                que.put((ans_confidence, id_list))
+                
+            if (iter + 1) % 50 == 0:
+                logger.info('step : {}/{}'.format(
+                iter+1, 
+                str(len(tag_loader)),
                 ))
-           
-    return  loss_sum/iter
-
-
+        
+    for _ in range(self_step):
+        confidence_list.append(que.get()[1])
+        if que.empty():
+            break
+    print(confidence_list)
+    return confidence_list
+        
+        
 
 def test(args, model, test_loader, test_dataset):
     belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id # schema
@@ -120,5 +126,3 @@ def test(args, model, test_loader, test_dataset):
     loss_sum += outputs.loss.cpu()
 
     return  joint_goal_acc, slot_acc, domain_acc, schema_acc, detail_wrong, loss_sum/iter
-        
-        

@@ -10,7 +10,7 @@ from loopdataset import LoopDataset
 import init
 
 from collections import OrderedDict
-from trainer import valid, train, test, tag
+from trainer import train, test, tag
 from torch.utils.data import DataLoader
 
 import torch.distributed as dist
@@ -48,6 +48,8 @@ parser.add_argument('--never_split_file',  default='./asset/never_split.txt', ty
 parser.add_argument('--aux',  default=1, type=int, help='number of gpus per node')
 parser.add_argument('--zeroshot_domain', type=str, choices=["restaurant", "hotel", "attraction", "train", "taxi"],help='restaurant|hotel|attraction|train|taxi')
 parser.add_argument('--temp_folder', type=str, default = './looptemp')
+parser.add_argument('--self_step', type=int, default = 10)
+
 args = parser.parse_args()
 init.init_experiment(args)
 logger = logging.getLogger("my")
@@ -99,8 +101,12 @@ def main_worker(gpu, args):
     
            
 def loop_worker(gpu, args):
+    if args.do_short:
+        args.untagged_path =  '../woz-data/MultiWOZ_2.1/train_data0.001.json'
+        
     logger.info(f'In loop, {gpu} works!')
     batch_size = int(args.batch_size / args.gpus)
+    self_step = int(args.self_step/args.gpus)
     test_batch_size = int(args.test_batch_size / args.gpus)
     
     torch.distributed.init_process_group(
@@ -130,15 +136,15 @@ def loop_worker(gpu, args):
     model = load_trained(args,model)
     tag_dataset = LoopDataset(args, 'tag')
     tag_loader = get_loader(tag_dataset, test_batch_size)
-    high_confidence = tag(args, gpu, model, tag_loader, tag_dataset)
+    high_confidence = tag(args, model, gpu, tag_loader,self_step)
 
-    with open(f"{args.temp_folder}\confidence\c_{gpu}.txt", 'w') as f:
+    with open(f"{args.temp_folder}/confidence/c_{gpu}.txt", 'w') as f:
         for item in high_confidence:
-            f.write(','.join(item))
+            f.write(','.join(item)+'\n')
             
-    with open(f"{args.temp_folder}/worked_list.txt", 'a') as f:
+    with open(f"{args.temp_folder}/worked_list/w_{gpu}.txt", 'a') as f:
         for item in high_confidence:
-            f.write(','.join(item))
+            f.write(','.join(item)+'\n')
     dist.barrier()
 
     ctrain_dataset =LoopDataset(args,'train') # None or not
@@ -206,8 +212,7 @@ def main():
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
     args.tokenizer.add_special_tokens(special_tokens_dict)
     
-    
-    if args.do_train:
+    '''    if args.do_train:
         try:
             mp.spawn(main_worker,
                 nprocs=args.world_size,
@@ -216,9 +221,9 @@ def main():
         except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
             logger.error(e)
             print(e)
-            
-    # evaluate()
     
+    '''      
+    # evaluate()
     
     if args.do_loop:
         while True:

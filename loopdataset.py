@@ -19,8 +19,8 @@ class LoopDataset(torch.utils.data.Dataset):
         self.data_type = data_type # tag, train
         self.tokenizer = args.tokenizer
         self.max_length = args.max_length
-        logger.info(f"load raw file in loop dataset.py {args.untagged}")
-        self.raw_dataset = json.load(open(args.untagged , "r"))
+        logger.info(f"load raw file in loop dataset.py {args.untagged_path}")
+        self.raw_dataset = json.load(open(args.untagged_path , "r"))
         if data_type == 'tag':
             # pass in this list
             with open(f'{args.temp_folder}/worked_list.txt', "r") as file:
