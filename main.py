@@ -43,13 +43,25 @@ parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the 
 parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
 parser.add_argument('--aux',  default=1, type=int, help='number of gpus per node')
 parser.add_argument('--zeroshot_domain', type=str, choices=["restaurant", "hotel", "attraction", "train", "taxi"],help='restaurant|hotel|attraction|train|taxi')
-
+parser.add_argument('--train_continue', type=int, default = 0)
 
 
 args = parser.parse_args()
 init.init_experiment(args)
 logger = logging.getLogger("my")
        
+def load_trained(args,model):
+    state_dict = torch.load(args.pretrained_model)
+    new_state_dict = OrderedDict()
+    
+    for k, v in state_dict.items():
+        name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
+        new_state_dict[name] = v
+    model.resize_token_embeddings(len(args.tokenizer))
+    model.load_state_dict(new_state_dict)
+    return model
+
+
 def get_loader(dataset,batch_size):
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
     shuffle = False
@@ -73,7 +85,13 @@ def main_worker(gpu, args):
 
         
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
-    model.resize_token_embeddings(len(args.tokenizer))
+    
+    if args.pretrained_model and args.train_continue:
+        logger.info(f"Use pretrained model{args.pretrained_model} in train")
+        model = load_trained(args,model)
+    else:        
+        model.resize_token_embeddings(len(args.tokenizer))
+        
     model = DDP(model, device_ids=[gpu])
     
     train_dataset =Dataset(args, args.train_path, 'train')
@@ -94,7 +112,8 @@ def main_worker(gpu, args):
     
     min_loss = float('inf')
     best_performance = {}
-
+    '''
+    
     logger.info("Trainning start")
     for epoch in range(args.max_epoch):
         if gpu==0: logger.info(f"Epoch : {epoch}")
@@ -113,30 +132,20 @@ def main_worker(gpu, args):
     if gpu==0:            
         logger.info(f"Best Score :  {best_performance}" )
     dist.barrier()
+    '''
     
     
 def evaluate():
     test_dataset =Dataset(args, args.test_path, 'test')
-    
-    
     loader = torch.utils.data.DataLoader(
         dataset=test_dataset, batch_size=args.test_batch_size, pin_memory=True,
         num_workers=0, shuffle=False, collate_fn=test_dataset.collate_fn)
+    model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
+    
     
     if args.pretrained_model:
-        logger.info(f"User pretrained model{args.pretrained_model}")
-        state_dict = torch.load(args.pretrained_model)
-
-        new_state_dict = OrderedDict()
-        for k, v in state_dict.items():
-            name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
-            new_state_dict[name] = v
-        model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
-        model.resize_token_embeddings(len(args.tokenizer))
-        model.load_state_dict(new_state_dict)
-    
-    else:
-        model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
+        logger.info(f"User pretrained model{args.pretrained_model} in eval")
+        model = load_trained(args,model)
         
     joint_goal_acc, slot_acc, domain_acc, schema_acc, detail_wrong, loss = test(args, model, loader, test_dataset)
     

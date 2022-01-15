@@ -4,6 +4,7 @@ runs/
 logs/
 out/
 db/
+looptemp/
 temp.ipynb
 temp.py
 *.sh
