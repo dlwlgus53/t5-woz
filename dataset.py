@@ -174,7 +174,6 @@ class Dataset(torch.utils.data.Dataset):
     def _belief_clean(self, belief_dict):
         clean_belief = str(belief_dict).replace('{','').replace('}','')
         clean_belief = clean_belief.replace("'","")
-        clean_belief = clean_belief.replace(":", " is")
         clean_belief = clean_belief.replace("-", " ")
         return clean_belief
     
