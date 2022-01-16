@@ -22,13 +22,10 @@ class LoopDataset(torch.utils.data.Dataset):
         logger.info(f"load raw file in loop dataset.py {args.untagged_path}")
         self.raw_dataset = json.load(open(args.untagged_path , "r"))
         if data_type == 'tag':
-            # pass in this list
-            with open(f'{args.temp_folder}/worked_list.txt', "r") as file:
-                index = file.read().splitlines()
-                index =[i.split(",") for i in index]
+            index = self.load_temp_file(f"{args.temp_folder}/worked_list/") # read all confidence list
             
         elif data_type == 'train':
-            index = self.load_c_file(f"{args.temp_folder}/confidence/") # read all confidence list
+            index = self.load_temp_file(f"{args.temp_folder}/confidence/") # read all confidence list
 
         turn_id, dial_id,  question, schema, answer = self.seperate_data(self.raw_dataset, index)
 
@@ -42,13 +39,12 @@ class LoopDataset(torch.utils.data.Dataset):
         self.question = question
         self.schema = schema
             
-    def load_c_file(self, path):
+    def load_temp_file(self, path):
         index = []
         for file in glob.glob(f"{path}/*.txt"):
             with open(file, "r") as txt_file:
                 c_index = txt_file.read().splitlines()
                 index += [i.split(",") for i in c_index]
-            
         return index
             
     def encode(self, texts ,return_tensors="pt"):
@@ -75,7 +71,7 @@ class LoopDataset(torch.utils.data.Dataset):
             if i[0] == index[0] and\
                 int(i[1]) == index[1] and\
                 i[2] == index[2]:
-                    return True            
+                    return True   
         return False
     
     def seperate_data(self, dataset, index):
@@ -172,7 +168,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--temp_folder', type=str, default = './looptemp')
-
+    parser.add_argument('--untagged_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/untagged.json')
     parser.add_argument('--do_short' ,  type = int, default=1)
     parser.add_argument('--seed' ,  type = float, default=1)
     parser.add_argument('--max_length' ,  type = float, default=128)
@@ -180,7 +176,7 @@ if __name__ == '__main__':
     parser.add_argument('--base_trained', type = str, default = "t5-small", help =" pretrainned model from 🤗")
     args = parser.parse_args()
 
-    args.untagged = '../woz-data/MultiWOZ_2.1/test_data_short.json'
+    args.untagged_path =  '../woz-data/MultiWOZ_2.1/train_data0.001.json'
     
     from transformers import T5Tokenizer
     args.tokenizer = T5Tokenizer.from_pretrained('t5-small')
@@ -191,7 +187,7 @@ if __name__ == '__main__':
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
     args.tokenizer.add_special_tokens(special_tokens_dict)
     
-    dataset = Dataset(args,'tag')
+    dataset = LoopDataset(args,'tag')
     loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=16, collate_fn=dataset.collate_fn)
     
     for batch in loader:

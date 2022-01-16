@@ -11,7 +11,7 @@ from utils import save_pickle
 logger = logging.getLogger("my")
 
 
-def train(args, gpu, model, train_loader, optimizer, train_dataset):
+def train(args, gpu, model, train_loader, optimizer, train_dataset, save_belief = True):
     model.train()
     if gpu==0: logger.info("Train start")
     for iter, batch in enumerate(train_loader):
@@ -28,7 +28,8 @@ def train(args, gpu, model, train_loader, optimizer, train_dataset):
             dial_id = batch['dial_id'][idx]
             turn_id = batch['turn_id'][idx]
             schema = batch['schema'][idx]
-            train_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
+            if save_belief:
+                train_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
             
         loss =outputs.loss
         loss.backward()
@@ -77,7 +78,6 @@ def tag(args, model, gpu, tag_loader,self_step):
         confidence_list.append(que.get()[1])
         if que.empty():
             break
-    print(confidence_list)
     return confidence_list
         
         

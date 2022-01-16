@@ -48,7 +48,7 @@ parser.add_argument('--never_split_file',  default='./asset/never_split.txt', ty
 parser.add_argument('--aux',  default=1, type=int, help='number of gpus per node')
 parser.add_argument('--zeroshot_domain', type=str, choices=["restaurant", "hotel", "attraction", "train", "taxi"],help='restaurant|hotel|attraction|train|taxi')
 parser.add_argument('--temp_folder', type=str, default = './looptemp')
-parser.add_argument('--self_step', type=int, default = 10)
+parser.add_argument('--self_step', type=int, default = 500)
 
 args = parser.parse_args()
 init.init_experiment(args)
@@ -132,12 +132,9 @@ def loop_worker(gpu, args):
                     warmup_init=False)
 
     logger.info("Tag start")
-    model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
-    model = load_trained(args,model)
     tag_dataset = LoopDataset(args, 'tag')
     tag_loader = get_loader(tag_dataset, test_batch_size)
     high_confidence = tag(args, model, gpu, tag_loader,self_step)
-
     with open(f"{args.temp_folder}/confidence/c_{gpu}.txt", 'w') as f:
         for item in high_confidence:
             f.write(','.join(item)+'\n')
@@ -149,7 +146,7 @@ def loop_worker(gpu, args):
 
     ctrain_dataset =LoopDataset(args,'train') # None or not
     ctrain_loader = get_loader(ctrain_dataset, batch_size)
-    train(args, gpu, model, ctrain_loader, optimizer, ctrain_dataset)
+    train(args, gpu, model, ctrain_loader, optimizer, ctrain_dataset, save_belief = False)
 
     if gpu == 0:
         if not args.debugging:
@@ -187,6 +184,7 @@ def evaluate(): # 여기는 건들 것 없지
         model = load_trained(args,model)
     
     joint_goal_acc, slot_acc, domain_acc, schema_acc, detail_wrong, loss = test(args, model, loader, test_dataset)
+    print(f'JGA : {joint_goal_acc}')
     
     logger.info(f'JGA : {joint_goal_acc} Slot Acc : {slot_acc} Loss : {loss}')
     logger.info(f'domain_acc : {domain_acc}')
@@ -212,7 +210,7 @@ def main():
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
     args.tokenizer.add_special_tokens(special_tokens_dict)
     
-    '''    if args.do_train:
+    if args.do_train:
         try:
             mp.spawn(main_worker,
                 nprocs=args.world_size,
@@ -222,8 +220,8 @@ def main():
             logger.error(e)
             print(e)
     
-    '''      
-    # evaluate()
+    
+    evaluate()
     
     if args.do_loop:
         while True:
@@ -235,12 +233,11 @@ def main():
             except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
                 logger.error(e)
                 print(e)
-            # evaluate()
-            break
             
-
-
-
+            evaluate()    
+            with open(f"{args.temp_folder}/confidence/c_{gpu}.txt", 'r') as f:
+                if len(f.read().splitlines()) < int(args.self_step/args.gpus) : 
+                    break
 
 if __name__ =="__main__":
     utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out");
