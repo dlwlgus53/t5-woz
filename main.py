@@ -240,8 +240,9 @@ def main():
                     break
 
 if __name__ =="__main__":
-    utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out");
-    utils.makedirs("./temp"); utils.makedirs("./logs/csvs"); utils.makedirs("./logs/jsons")
+    utils.makedirs("./data");  utils.makedirs("./model"); utils.makedirs("./out");
+    utils.makedirs("./looptemp/confidence"); utils.makedirs("./logs/csvs"); utils.makedirs("./logs/jsons");
+    utils.makedirs("./looptemp/worked_list"); 
     
     for gpu in range(args.gpus):
         with open(f"{args.temp_folder}/confidence/c_{gpu}.txt", 'w') as f:
