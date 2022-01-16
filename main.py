@@ -246,6 +246,13 @@ if __name__ =="__main__":
     utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out");
     utils.makedirs("./temp"); utils.makedirs("./logs/csvs"); utils.makedirs("./logs/jsons")
     
+    for gpu in range(args.gpus):
+        with open(f"{args.temp_folder}/confidence/c_{gpu}.txt", 'w') as f:
+            f.write('')
+                
+        with open(f"{args.temp_folder}/worked_list/w_{gpu}.txt", 'w') as f:
+            f.write('')
+            
     logger.info(f"{'-' * 30}")
     logger.info("Start New Trainning")
     start = time.time()
