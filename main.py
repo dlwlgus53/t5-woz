@@ -149,7 +149,8 @@ def loop_worker(gpu, args):
     if gpu == 0:
         if not args.debugging:
             torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}.pt")
-            logger.info("safely saved")
+            logger.info(f"safely saved in model/woz{args.save_prefix}{args.data_rate}.pt")
+
 
     dist.barrier()
 
