@@ -125,7 +125,7 @@ def main_worker(gpu, args):
             best_performance['min_loss'] = min_loss.item()
             if not args.debugging:
                 torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}.pt")
-            logger.info("safely saved")
+            logger.info(f"safely saved in model/woz{args.save_prefix}{args.data_rate}.pt")
                 
     if gpu==0:            
         logger.info(f"Best Score :  {best_performance}" )
