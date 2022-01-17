@@ -51,9 +51,10 @@ def evaluate_metrics(all_prediction, raw_file, detail_log):
             belief_label = [f'{k} : {v}' for (k,v) in belief_label.items()] 
             belief_pred = [f'{k} : {v}' for (k,v) in belief_pred.items()] 
             if turn_idx == len(dial)-1:
-                logger.info(key)
-                logger.info(f'label : {sorted(belief_label)}')
-                logger.info(f'pred : {sorted(belief_pred)}')
+                pass
+                # logger.info(key)
+                # logger.info(f'label : {sorted(belief_label)}')
+                # logger.info(f'pred : {sorted(belief_pred)}')
                 
             if set(belief_label) == set(belief_pred):
                 joint_acc += 1
@@ -98,7 +99,6 @@ def evaluate_response(belief_state, response):
     logger.info(results)
             
 def compute_acc(gold, pred, slot_temp, domain, detail_log):
-    # import pdb; pdb.set_trace()
     detail_wrong = []
     miss_gold = 0
     miss_slot = []

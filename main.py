@@ -101,8 +101,6 @@ def main_worker(gpu, args):
     
            
 def loop_worker(gpu, args):
-    if args.do_short:
-        args.untagged_path =  '../woz-data/MultiWOZ_2.1/train_data0.001.json'
         
     logger.info(f'In loop, {gpu} works!')
     batch_size = int(args.batch_size / args.gpus)
@@ -221,7 +219,7 @@ def main():
             print(e)
     
     
-    evaluate()
+    # evaluate()
     
     if args.do_loop:
         while True:
@@ -233,12 +231,13 @@ def main():
             except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
                 logger.error(e)
                 print(e)
-            
+            torch.cuda.empty_cache()
             evaluate()    
             with open(f"{args.temp_folder}/confidence/c_{gpu}.txt", 'r') as f:
                 if len(f.read().splitlines()) < int(args.self_step/args.gpus) : 
                     break
-
+            torch.cuda.empty_cache()
+            
 if __name__ =="__main__":
     utils.makedirs("./data");  utils.makedirs("./model"); utils.makedirs("./out");
     utils.makedirs("./looptemp/confidence"); utils.makedirs("./logs/csvs"); utils.makedirs("./logs/jsons");
