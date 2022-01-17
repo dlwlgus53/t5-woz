@@ -112,8 +112,6 @@ def main_worker(gpu, args):
     
     min_loss = float('inf')
     best_performance = {}
-    '''
-    
     logger.info("Trainning start")
     for epoch in range(args.max_epoch):
         if gpu==0: logger.info(f"Epoch : {epoch}")
@@ -132,7 +130,6 @@ def main_worker(gpu, args):
     if gpu==0:            
         logger.info(f"Best Score :  {best_performance}" )
     dist.barrier()
-    '''
     
     
 def evaluate():
