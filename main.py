@@ -164,7 +164,7 @@ def loop_worker(gpu, args):
             
     with open(f"{args.temp_folder}/worked_list/w_{gpu}.txt", 'a') as f:
         for item in high_confidence:
-            f.write(','.join(item)+'\n')
+            f.write(','.join(item[:-1])+'\n')
     dist.barrier()
 
     ctrain_dataset =LoopDataset(args,'train') # None or not
@@ -234,7 +234,7 @@ def main():
             print(e)
     
     
-    # evaluate()
+    evaluate()
     
     if args.do_loop:
         while True:

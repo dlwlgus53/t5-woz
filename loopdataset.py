@@ -4,6 +4,7 @@ import pdb
 import json
 import torch
 import pickle
+import copy
 import ontology
 import tokenizer_config as tc
 from tqdm import tqdm
@@ -22,30 +23,42 @@ class LoopDataset(torch.utils.data.Dataset):
         logger.info(f"load raw file in loop dataset.py {args.untagged_path}")
         self.raw_dataset = json.load(open(args.untagged_path , "r"))
         if data_type == 'tag':
-            index = self.load_temp_file(f"{args.temp_folder}/worked_list/") # read all confidence list
+            index= self.load_temp_file(f"{args.temp_folder}/worked_list/") # read all confidence list
+            answer = []
             
         elif data_type == 'train':
-            index = self.load_temp_file(f"{args.temp_folder}/confidence/") # read all confidence list
+            index, answer = self.load_temp_file(f"{args.temp_folder}/confidence/") # read all confidence list
 
-        turn_id, dial_id,  question, schema, answer = self.seperate_data(self.raw_dataset, index)
+        turn_id, dial_id,  question, schema = self.seperate_data(self.raw_dataset, index)
 
         assert len(turn_id) == len(dial_id) == len(question)\
-            == len(schema) == len(answer)
+            == len(schema)
             
-        self.answer = answer
-        self.target = self.encode(answer)
+        if answer == []: answer = copy.deepcopy(schema)
+        
         self.turn_id = turn_id
         self.dial_id = dial_id
         self.question = question
         self.schema = schema
+        self.target = self.encode(answer)
             
     def load_temp_file(self, path):
         index = []
+        ans = []
         for file in glob.glob(f"{path}/*.txt"):
             with open(file, "r") as txt_file:
                 c_index = txt_file.read().splitlines()
-                index += [i.split(",") for i in c_index]
-        return index
+                if self.data_type == 'train':
+                    index += [i.split(",")[:-1] for i in c_index]
+                    ans += [i.split(",")[-1] for i in c_index]
+                    
+                elif self.data_type == 'tag':
+                    index += [i.split(",") for i in c_index]
+                    
+        if self.data_type == 'train':
+            return index, ans
+        elif self.data_type == 'tag':
+            return index
             
     def encode(self, texts ,return_tensors="pt"):
         examples = []
@@ -76,7 +89,6 @@ class LoopDataset(torch.utils.data.Dataset):
     
     def seperate_data(self, dataset, index):
         question = []
-        answer = []
         schema = []
         dial_id = []
         turn_id = []
@@ -90,18 +102,11 @@ class LoopDataset(torch.utils.data.Dataset):
                     if (self.data_type == 'train' and self.is_in_index(index,[d_id, t_id, key])) \
                         or (self.data_type == 'tag'and not self.is_in_index(index, [d_id, t_id, key])): 
                         q = ontology.QA[key]['description']
-                        if key in turn['belief']: # 언급을 한 경우
-                            a = turn['belief'][key]
-                            if isinstance(a, list) : a= a[0] # in muptiple type, a == ['sunday',6]
-                        else:
-                            a = ontology.QA['NOT_MENTIONED']
-                        
                         schema.append(key)
-                        answer.append(a)
                         question.append(q)
                         dial_id.append(d_id)
                         turn_id.append(t_id)
-        return turn_id, dial_id,  question, schema, answer
+        return turn_id, dial_id,  question, schema
 
     def __getitem__(self, index):
         dial_id = self.dial_id[index]
@@ -156,7 +161,6 @@ class LoopDataset(torch.utils.data.Dataset):
             
         pad_source = self.tokenizer.pad(source_list,padding=True)
         pad_target = self.tokenizer.pad(target_list,padding=True)
-        
         return {"input": pad_source, "target": pad_target,\
                  "schema":schema, "dial_id":dial_id, "turn_id":turn_id}
         

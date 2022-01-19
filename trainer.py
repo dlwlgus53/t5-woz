@@ -50,8 +50,8 @@ def tag(args, model, gpu, tag_loader,self_step):
     que = PriorityQueue()
     with torch.no_grad():
         for iter,batch in enumerate(tag_loader):
-            outputs = model(input_ids=batch['input']['input_ids'].to(f'cuda:{gpu}'), labels=batch['target']['input_ids'].to(f'cuda:{gpu}'))
-            outputs_text = model.generate(input_ids=batch['input']['input_ids'].to('cuda'))
+            outputs = model(input_ids=batch['input']['input_ids'].to(f'cuda:{gpu}'), labels=batch['target']['input_ids'].to('cuda'))
+            outputs_text = model.module.generate(input_ids=batch['input']['input_ids'].to('cuda'))
             outputs_text = [args.tokenizer.decode(o).replace('</s>','').replace('<pad>','').strip() for o in outputs_text]
 
             logits = outputs.logits.to('cpu')
