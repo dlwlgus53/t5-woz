@@ -116,7 +116,6 @@ def loop_worker(gpu, args):
     
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
     model = load_trained(args, model)
-    model.resize_token_embeddings(len(args.tokenizer))
     model = DDP(model, device_ids=[gpu])
         
     optimizer = Adafactor(model.parameters(),lr=1e-3,
@@ -161,7 +160,6 @@ def load_trained(args,model):
     
     state_dict = torch.load(args.pretrained_model)
     new_state_dict = OrderedDict()
-    
     for k, v in state_dict.items():
         name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
         new_state_dict[name] = v
@@ -179,7 +177,6 @@ def evaluate(): # 여기는 건들 것 없지
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
     
     if args.pretrained_model:
-        logger.info(f"User pretrained model{args.pretrained_model}")
         model = load_trained(args,model)
     
     joint_goal_acc, slot_acc, domain_acc, schema_acc, detail_wrong, loss = test(args, model, loader, test_dataset)
@@ -232,11 +229,15 @@ def main():
             except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
                 logger.error(e)
                 print(e)
+                
             torch.cuda.empty_cache()
-            evaluate()    
+            
+            evaluate() 
+               
             with open(f"{args.temp_folder}/confidence/c_{gpu}.txt", 'r') as f:
                 if len(f.read().splitlines()) < int(args.self_step/args.gpus) : 
                     break
+                
             torch.cuda.empty_cache()
             
 if __name__ =="__main__":
