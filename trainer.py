@@ -51,14 +51,18 @@ def tag(args, model, gpu, tag_loader,self_step):
     with torch.no_grad():
         for iter,batch in enumerate(tag_loader):
             outputs = model(input_ids=batch['input']['input_ids'].to(f'cuda:{gpu}'), labels=batch['target']['input_ids'].to(f'cuda:{gpu}'))
+            outputs_text = model.generate(input_ids=batch['input']['input_ids'].to('cuda'))
+            outputs_text = [args.tokenizer.decode(o).replace('</s>','').replace('<pad>','').strip() for o in outputs_text]
+
             logits = outputs.logits.to('cpu')
             
             for idx, logit in enumerate(logits):
                 dial_id = batch['dial_id'][idx]
                 turn_id = batch['turn_id'][idx]
                 schema = batch['schema'][idx]
+                output_text = outputs_text[idx]
                 ans_confidence =0 
-                id_list = [dial_id, str(turn_id), schema]
+                id_ans_list = [dial_id, str(turn_id), schema, output_text]
                 for word_idx, word in enumerate(logit):
                     id = int(torch.argmax(word))
                     value = float(torch.max(word))
@@ -66,7 +70,7 @@ def tag(args, model, gpu, tag_loader,self_step):
                     if id == args.tokenizer.eos_token_id:
                         ans_confidence = -(ans_confidence/(word_idx+1)) # for priority
                         break
-                que.put((ans_confidence, id_list))
+                que.put((ans_confidence, id_ans_list))
                 
             if (iter + 1) % 50 == 0:
                 logger.info('step : {}/{}'.format(

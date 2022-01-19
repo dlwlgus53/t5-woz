@@ -61,8 +61,33 @@ def get_loader(dataset,batch_size):
     loader = torch.utils.data.DataLoader(
         dataset=dataset, batch_size=batch_size, pin_memory=pin_memory,
         num_workers=0, shuffle=shuffle, sampler=train_sampler,  collate_fn=dataset.collate_fn)
-    return loader       
-       
+    return loader  
+
+     
+def load_trained(args,model, optimizer = None):
+    logger.info(f"User pretrained model{args.pretrained_model}")
+    optimizer = Adafactor(model.parameters(),lr=1e-3,
+            eps=(1e-30, 1e-3),
+            clip_threshold=1.0,
+            decay_rate=-0.8,
+            beta1=None,
+            weight_decay=0.0,
+            relative_step=False,
+            scale_parameter=False,
+            warmup_init=False)
+    state_dict = torch.load(args.pretrained_model)
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
+        new_state_dict[name] = v
+    model.resize_token_embeddings(len(args.tokenizer))
+    model.load_state_dict(new_state_dict)
+    if optimizer:
+        opt_path = "./model/optimizer/" + args.pretrained_model[7:] #todo
+        optimizer.load_state_dict(torch.load(opt_path))
+    print("load safely")
+        
+        
 def main_worker(gpu, args):
     logger.info(f'In main, {gpu} works!')
     batch_size = int(args.batch_size / args.gpus)
@@ -91,11 +116,12 @@ def main_worker(gpu, args):
         train_dataset =Dataset(args, args.train_path, 'train', epoch) # None or not
         train_loader = get_loader(train_dataset, batch_size)
         if gpu==0: logger.info(f"Epoch : {epoch}")
-        train(args, gpu, model, train_loader, optimizer, train_dataset)
+        # train(args, gpu, model, train_loader, optimizer, train_dataset)
 
     if gpu == 0:
         if not args.debugging:
             torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}.pt")
+            torch.save(optimizer.state_dict(), f"model/optimizer/woz{args.save_prefix}{args.data_rate}.pt")
             logger.info("safely saved")
     dist.barrier()
     
@@ -115,18 +141,18 @@ def loop_worker(gpu, args):
     torch.cuda.set_device(gpu)
     
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
-    model = load_trained(args, model)
-    model = DDP(model, device_ids=[gpu])
-        
     optimizer = Adafactor(model.parameters(),lr=1e-3,
-                    eps=(1e-30, 1e-3),
-                    clip_threshold=1.0,
-                    decay_rate=-0.8,
-                    beta1=None,
-                    weight_decay=0.0,
-                    relative_step=False,
-                    scale_parameter=False,
-                    warmup_init=False)
+                eps=(1e-30, 1e-3),
+                clip_threshold=1.0,
+                decay_rate=-0.8,
+                beta1=None,
+                weight_decay=0.0,
+                relative_step=False,
+                scale_parameter=False,
+                warmup_init=False)
+        
+    load_trained(args, model, optimizer)
+    model = DDP(model, device_ids=[gpu])
 
     logger.info("Tag start")
     tag_dataset = LoopDataset(args, 'tag')
@@ -148,6 +174,7 @@ def loop_worker(gpu, args):
     if gpu == 0:
         if not args.debugging:
             torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}.pt")
+            torch.save(optimizer.state_dict(), f"model/optimizer/woz{args.save_prefix}{args.data_rate}.pt")
             logger.info(f"safely saved in model/woz{args.save_prefix}{args.data_rate}.pt")
 
 
@@ -155,17 +182,7 @@ def loop_worker(gpu, args):
 
 
 
-def load_trained(args,model):
-    logger.info(f"User pretrained model{args.pretrained_model}")
-    
-    state_dict = torch.load(args.pretrained_model)
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
-        new_state_dict[name] = v
-    model.resize_token_embeddings(len(args.tokenizer))
-    model.load_state_dict(new_state_dict)
-    return model
+
     
     
 def evaluate(): # 여기는 건들 것 없지
@@ -177,7 +194,7 @@ def evaluate(): # 여기는 건들 것 없지
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to('cuda:0')
     
     if args.pretrained_model:
-        model = load_trained(args,model)
+        load_trained(args,model)
     
     joint_goal_acc, slot_acc, domain_acc, schema_acc, detail_wrong, loss = test(args, model, loader, test_dataset)
     print(f'JGA : {joint_goal_acc}')
@@ -241,7 +258,7 @@ def main():
             torch.cuda.empty_cache()
             
 if __name__ =="__main__":
-    utils.makedirs("./data");  utils.makedirs("./model"); utils.makedirs("./out");
+    utils.makedirs("./data");  utils.makedirs("./model/optimizer"); utils.makedirs("./out");
     utils.makedirs("./looptemp/confidence"); utils.makedirs("./logs/csvs"); utils.makedirs("./logs/jsons");
     utils.makedirs("./looptemp/worked_list"); 
     
