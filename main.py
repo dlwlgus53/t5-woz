@@ -50,16 +50,19 @@ args = parser.parse_args()
 init.init_experiment(args)
 logger = logging.getLogger("my")
        
-def load_trained(args,model):
+def load_trained(args,model, optimizer = None):
+    logger.info(f"User pretrained model{args.pretrained_model}")
     state_dict = torch.load(args.pretrained_model)
     new_state_dict = OrderedDict()
-    
     for k, v in state_dict.items():
         name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
         new_state_dict[name] = v
     model.resize_token_embeddings(len(args.tokenizer))
     model.load_state_dict(new_state_dict)
-    return model
+    if optimizer:
+        opt_path = "./model/optimizer/" + args.pretrained_model[7:] #todo
+        optimizer.load_state_dict(torch.load(opt_path))
+    print("load safely")
 
 
 def get_loader(dataset,batch_size):
@@ -88,7 +91,7 @@ def main_worker(gpu, args):
     
     if args.pretrained_model and args.train_continue:
         logger.info(f"Use pretrained model{args.pretrained_model} in train")
-        model = load_trained(args,model)
+        load_trained(args,model)
     else:        
         model.resize_token_embeddings(len(args.tokenizer))
         
@@ -125,6 +128,7 @@ def main_worker(gpu, args):
             best_performance['min_loss'] = min_loss.item()
             if not args.debugging:
                 torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}.pt")
+                torch.save(optimizer.state_dict(), f"model/optimizer/woz{args.save_prefix}{args.data_rate}.pt")
                 logger.info(f"safely saved in model/woz{args.save_prefix}{args.data_rate}.pt")
                 
     if gpu==0:            
@@ -142,7 +146,7 @@ def evaluate():
     
     if args.pretrained_model:
         logger.info(f"User pretrained model{args.pretrained_model} in eval")
-        model = load_trained(args,model)
+        load_trained(args,model)
         
     joint_goal_acc, slot_acc, domain_acc, schema_acc, detail_wrong, loss = test(args, model, loader, test_dataset)
     
