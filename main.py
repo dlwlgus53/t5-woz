@@ -66,15 +66,6 @@ def get_loader(dataset,batch_size):
      
 def load_trained(args,model, optimizer = None):
     logger.info(f"User pretrained model{args.pretrained_model}")
-    optimizer = Adafactor(model.parameters(),lr=1e-3,
-            eps=(1e-30, 1e-3),
-            clip_threshold=1.0,
-            decay_rate=-0.8,
-            beta1=None,
-            weight_decay=0.0,
-            relative_step=False,
-            scale_parameter=False,
-            warmup_init=False)
     state_dict = torch.load(args.pretrained_model)
     new_state_dict = OrderedDict()
     for k, v in state_dict.items():
