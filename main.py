@@ -191,6 +191,7 @@ def main():
 
 if __name__ =="__main__":
     utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model");
+    utils.makedirs("./model/optimizer");
     logger.info(f"{'-' * 30}")
     logger.info("Start New Trainning")
     start = time.time()
