@@ -194,7 +194,8 @@ class Dataset(torch.utils.data.Dataset):
         if self.data_type == 'test':
             belief = [self.belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
         elif self.data_type == 'train' or self.data_type == 'val':
-            belief = [self.gold_belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
+            belief = [self.belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)]
+            # belief = [self.gold_belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
         
         history = [self.gold_context[d][t] for (d,t) in zip(dial_id, turn_id)]
         input_source = [f"question : {q} context : {c} belief : {self._belief_clean(b)}" for (q,c,b) in  \
