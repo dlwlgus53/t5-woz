@@ -56,7 +56,6 @@ def load_trained(args,model, optimizer = None):
     for k, v in state_dict.items():
         name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
         new_state_dict[name] = v
-    model.resize_token_embeddings(len(args.tokenizer))
     model.load_state_dict(new_state_dict)
     if optimizer:
         opt_path = "./model/optimizer/" + args.pretrained_model[7:] #todo
@@ -91,8 +90,7 @@ def main_worker(gpu, args):
         logger.info(f"Use pretrained model{args.pretrained_model} in train")
         load_trained(args,model)
     else:        
-        model.resize_token_embeddings(len(args.tokenizer))
-        
+        pass        
     model = DDP(model, device_ids=[gpu])
     
     train_dataset =Dataset(args, args.train_path, 'train')
