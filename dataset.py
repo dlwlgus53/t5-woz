@@ -104,7 +104,8 @@ class Dataset(torch.utils.data.Dataset):
                     if self.zeroshot_domain and \
                         self.data_type == 'test' and domain != self.zeroshot_domain: continue
                     
-                    q = ontology.QA[key]['description']
+                    ##################### changed part #################################
+                    q = ontology.QA[key]['description2']
                     c = dialogue_text
                     if key in turn['belief']: # 언급을 한 경우
                         a = turn['belief'][key]

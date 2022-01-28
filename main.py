@@ -45,7 +45,6 @@ parser.add_argument('--aux',  default=1, type=int, help='number of gpus per node
 parser.add_argument('--zeroshot_domain', type=str, choices=["restaurant", "hotel", "attraction", "train", "taxi"],help='restaurant|hotel|attraction|train|taxi')
 parser.add_argument('--train_continue', type=int, default = 0)
 
-
 args = parser.parse_args()
 init.init_experiment(args)
 logger = logging.getLogger("my")
@@ -63,7 +62,6 @@ def load_trained(args,model, optimizer = None):
         opt_path = "./model/optimizer/" + args.pretrained_model[7:] #todo
         optimizer.load_state_dict(torch.load(opt_path))
     print("load safely")
-
 
 def get_loader(dataset,batch_size):
     train_sampler = torch.utils.data.distributed.DistributedSampler(dataset)
