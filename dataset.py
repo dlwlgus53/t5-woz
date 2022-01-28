@@ -105,7 +105,7 @@ class Dataset(torch.utils.data.Dataset):
                         self.data_type == 'test' and domain != self.zeroshot_domain: continue
                     
                     ##################### changed part #################################
-                    q = ontology.QA[key]['description2']
+                    q = ontology.QA[key]['description1']
                     c = dialogue_text
                     if key in turn['belief']: # 언급을 한 경우
                         a = turn['belief'][key]
@@ -137,6 +137,25 @@ class Dataset(torch.utils.data.Dataset):
                         dial_id.append(d_id)
                         turn_id.append(t_id)
                 # ########################################################################    
+                # ###########changed part ###########################################
+                if self.data_type == 'train' and self.aux == 1:
+                    # domain aux
+                    for key_idx, key in enumerate(ontology.QA['bigger-domain']): # TODO
+                        domain = key
+                        if self.zeroshot_domain and domain == self.zeroshot_domain: continue
+                        q = ontology.QA["general-question"] +domain + "?" 
+                        c = dialogue_text
+                        a = 'no'
+                        for belief_key in turn['belief']:
+                            if belief_key.startswith(domain):
+                                a = 'yes'
+                        schema.append(key)
+                        answer.append(a)
+                        question.append(q)
+                        dial_id.append(d_id)
+                        turn_id.append(t_id)
+                # ########################################################################    
+                
                 gold_belief_state[d_id][t_id] = turn['belief']
                 gold_context[d_id][t_id] = dialogue_text
                 
@@ -243,7 +262,7 @@ if __name__ == '__main__':
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
     args.tokenizer.add_special_tokens(special_tokens_dict)
     
-    dataset = Dataset(args, args.data_path, 'test')
+    dataset = Dataset(args, args.data_path, 'train')
     loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=16, collate_fn=dataset.collate_fn)
     t  = args.tokenizer
     for batch in loader:
