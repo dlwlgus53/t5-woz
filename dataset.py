@@ -137,24 +137,7 @@ class Dataset(torch.utils.data.Dataset):
                         dial_id.append(d_id)
                         turn_id.append(t_id)
                 # ########################################################################    
-                # ###########changed part ###########################################
-                if self.data_type == 'train' and self.aux == 1:
-                    # domain aux
-                    for key_idx, key in enumerate(ontology.QA['bigger-domain']): # TODO
-                        domain = key
-                        if self.zeroshot_domain and domain == self.zeroshot_domain: continue
-                        q = ontology.QA["general-question"] +domain + "?" 
-                        c = dialogue_text
-                        a = 'no'
-                        for belief_key in turn['belief']:
-                            if belief_key.startswith(domain):
-                                a = 'yes'
-                        schema.append(key)
-                        answer.append(a)
-                        question.append(q)
-                        dial_id.append(d_id)
-                        turn_id.append(t_id)
-                # ########################################################################    
+   
                 
                 gold_belief_state[d_id][t_id] = turn['belief']
                 gold_context[d_id][t_id] = dialogue_text
