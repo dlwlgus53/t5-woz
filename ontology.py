@@ -332,7 +332,7 @@ next_response = {
 }
 
 QA = {
-    "general-question" : "Are they talking about ",
+    "general-question" : "are they talking about ",
     
     "hotel-pricerange": {
         "description1": "what is the price budget for the hotel?",
@@ -357,8 +357,8 @@ QA = {
         ]
     },
     "hotel-parking": {
-        "description1": "Does the hotel have a parking lot?",
-        "description2": "Does the hotel have a parking lot?(multiple choice)",
+        "description1": "does the hotel have a parking lot?",
+        "description2": "does the hotel have a parking lot?(multiple choice)",
         "values": [
             "yes",
             "no",
@@ -368,12 +368,12 @@ QA = {
         ]
     },
     "hotel-stay": {
-        "description1": "How long did user book the hotel?",
+        "description1": "how long did user book the hotel?",
         "description2": "How long did user book the hotel?(extract)"
     },
     "hotel-day": {
-        "description1": "What day did user book the hotel?",
-        "description2": "What day did user book the hotel?(multiple choice)",
+        "description1": "what day did user book the hotel?",
+        "description2": "what day did user book the hotel?(multiple choice)",
         "values": [
             "monday",
             "tuesday",
@@ -411,8 +411,8 @@ QA = {
         ]
     },
     "hotel-internet": {
-        "description1": "Does the user want a hotel with internet access?",
-        "description2": "Does the user want a hotel with internet access?(multiple choice)",
+        "description1": "does the user want a hotel with internet access?",
+        "description2": "does the user want a hotel with internet access?(multiple choice)",
         "values": [
             "yes",
             "no",
@@ -426,8 +426,8 @@ QA = {
         
     },
     "train-day": {
-        "description1": "What day did user book the train?",
-        "description2": "What day did user book the train?(multiple choice)",
+        "description1": "what day did user book the train?",
+        "description2": "what day did user book the train?(multiple choice)",
         "values": [
             "monday",
             "tuesday",
@@ -446,7 +446,7 @@ QA = {
         
     },
     "train-arrive": {
-        "description1": "when is the train arriving?",
+        "description1": "when is the train arriving(time)?",
         "description2": "when is the train arriving?(time)",
         
     },
@@ -456,18 +456,18 @@ QA = {
         
     },
     "train-leave": {
-        "description1": "when is the train leaving?",
+        "description1": "when is the train leaving?(time)",
         "description2": "when is the train leaving?(time)",
         
     },
     "attraction-area": {
-        "description1": "what is the area of the attraction?",
-        "description2": "what is the area of the attraction?(multiple choice)"
+        "description1": "where is the area of the attraction?",
+        "description2": "where is the area of the attraction?(multiple choice)"
         
     },
     "restaurant-food": {
-        "description1": "What kind of food do restaurants serve?",
-        "description2": "What kind of food do restaurants serve?(extract)",
+        "description1": "what kind of food do restaurants serve?",
+        "description2": "what kind of food do restaurants serve?(extract)",
         
     },
     "restaurant-pricerange": {
@@ -513,7 +513,7 @@ QA = {
      
     },
     "taxi-leave": {
-        "description1": "when is the taxi leaving?",
+        "description1": "when is the taxi leaving?(time)",
         "description2": "when is the taxi leaving?(time)",
         
         
@@ -528,7 +528,7 @@ QA = {
         "description2": "where is the departure location of taxi?(extract)"
     },
     "restaurant-time": {
-        "description1": "when is the book time of restaurant?",
+        "description1": "when is the book time of restaurant?(time)",
         "description2": "when is the book time of restaurant?(time)"
         
     },
@@ -554,7 +554,7 @@ QA = {
         
     },
     "taxi-arrive": {
-        "description1": "when is the taxi arriving?",
+        "description1": "when is the taxi arriving?(time)",
         "description2": "when is the taxi arriving?(time)",
         
     },
@@ -569,12 +569,12 @@ QA = {
 
     },
     "bus-leave": {
-        "description1": "when is the bus leaving?",
+        "description1": "when is the bus leaving?(time)",
         "description2": "when is the bus leaving?(time)"
     },
     "bus-day": {
-        "description1": "What day did user book the bus?",
-        "description2": "What day did user book the bus?(multiple-choice)",
+        "description1": "what day did user book the bus?",
+        "description2": "what day did user book the bus?(multiple-choice)",
         "values": [
             "monday",
             "tuesday",
