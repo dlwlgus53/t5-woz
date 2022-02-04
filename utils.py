@@ -33,7 +33,6 @@ def makedirs(path):
 def evaluate_metrics(all_prediction, raw_file, detail_log):
     # schema = ontology.QA['all-domain'][:-1] # next response 는 제외
     schema = ontology.QA['all-domain']# next response 는 제외
-    
     domain = ontology.QA['bigger-domain']
     
     detail_wrongs= defaultdict(lambda : defaultdict(list))# dial_id, # turn_id # schema
