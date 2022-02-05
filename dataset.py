@@ -27,10 +27,10 @@ class Dataset(torch.utils.data.Dataset):
         self.gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         self.gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
         self.data_type = data_type
-        
+        self.is_over = False
         
         if self.data_type == 'train':
-            raw_path = f'{data_path[:-5]}{args.data_rate}.json'
+            raw_path = f'{data_path[:-5]}1.json'
         else:
             raw_path = f'{data_path[:-5]}.json'
         
@@ -41,7 +41,7 @@ class Dataset(torch.utils.data.Dataset):
 
         logger.info(f"load {self.data_type} raw file {raw_path}")
         raw_dataset = json.load(open(raw_path , "r"))
-        turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say= self.seperate_data(raw_dataset)
+        turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say= self.seperate_data(raw_dataset, args.data_rate)
 
         assert len(turn_id) == len(dial_id) == len(question)\
             == len(schema) == len(answer)
@@ -76,7 +76,7 @@ class Dataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.dial_id)
     
-    def seperate_data(self, dataset):
+    def seperate_data(self, dataset, data_rate):
         user_say= defaultdict(lambda : defaultdict(str)) 
         gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
@@ -87,7 +87,11 @@ class Dataset(torch.utils.data.Dataset):
         dial_id = []
         turn_id = []
         
-        for d_id in dataset.keys():
+        for d_number, d_id in enumerate(dataset.keys()):
+            if d_number/len(dataset.keys()) > data_rate:
+                # now stop training that thing
+                self.is_over = True
+                
             dialogue = dataset[d_id]['log']
             dialogue_text = ""
             
@@ -98,9 +102,12 @@ class Dataset(torch.utils.data.Dataset):
                 for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
                     domain = key.split("-")[0]
                     
+                    # train은 그 도메인이면 넘어가.
                     if self.zeroshot_domain and \
-                        self.data_type != 'test' and domain == self.zeroshot_domain: continue
+                        self.data_type != 'test' and domain == self.zeroshot_domain and self.is_over: continue
                         
+                        
+                    # test 는 다른 도메인을 굳이 하지 않아    
                     if self.zeroshot_domain and \
                         self.data_type == 'test' and domain != self.zeroshot_domain: continue
                     
@@ -120,42 +127,21 @@ class Dataset(torch.utils.data.Dataset):
                     turn_id.append(t_id)
                 # ###########changed part ###########################################
                 if self.data_type == 'train' and self.aux == 1:
-                    k_t,a_t,q_t,did_t,tid_t = [],[],[],[],[] 
-                    for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
-                        k_t.append(key)
-                        domain = key.split("-")[0]
+                    # domain aux
+                    for key_idx, key in enumerate(ontology.QA['bigger-domain']): # TODO
+                        domain = key
                         if self.zeroshot_domain and domain == self.zeroshot_domain: continue
-                        domain_name = " ".join(key.split("-"))
-                        q = ontology.QA["general-question"] + " "+domain_name + "?" 
-                        q_t.append(q)
+                        q = ontology.QA["general-question"] +domain + "?" 
                         c = dialogue_text
-                        if key in turn['belief']: # 언급을 한 경우
-                            a = 'yes'
-                        else:
-                            a = 'no'
-                        a_t.append(a)
-                        did_t.append(d_id)
-                        tid_t.append(t_id)
-                    y_n, n_n = a_t.count('yes'), a_t.count('no')
-                    if y_n>=n_n:pass
-                    else:
-                        y_indices = [i for i, x in enumerate(a_t) if x == "yes"]
-                        n_indices = [i for i, x in enumerate(a_t) if x == "no"]
-                        n_indices = random.sample(n_indices, y_n)
-                        indices = y_indices + n_indices
-                        
-                        a_t = [x for i, x in enumerate(a_t) if i in indices]
-                        q_t = [x for i, x in enumerate(q_t) if i in indices]
-                        did_t = [x for i, x in enumerate(did_t) if i in indices]
-                        tid_t = [x for i, x in enumerate(tid_t) if i in indices]
-                        k_t = [x for i, x in enumerate(k_t) if i in indices]
-                        
-                        
-                    schema += k_t
-                    answer += a_t
-                    question += q_t
-                    dial_id += did_t
-                    turn_id += tid_t
+                        a = 'no'
+                        for belief_key in turn['belief']:
+                            if belief_key.startswith(domain):
+                                a = 'yes'
+                        schema.append(key)
+                        answer.append(a)
+                        question.append(q)
+                        dial_id.append(d_id)
+                        turn_id.append(t_id)
                 # ########################################################################    
    
                 
@@ -250,7 +236,7 @@ if __name__ == '__main__':
     parser.add_argument('--max_length' ,  type = float, default=128)
     parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
     parser.add_argument('--base_trained', type = str, default = "google/t5-small-ssm-nq", help =" pretrainned model from 🤗")
-    parser.add_argument('--zeroshot_domain', type=str, help='zeroshot option')
+    parser.add_argument('--zeroshot_domain', type=str,  default = "hotel", help='zeroshot option')
     parser.add_argument('--aux', type=int,default = 1)
     
     args = parser.parse_args()
@@ -269,8 +255,9 @@ if __name__ == '__main__':
     loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=16, collate_fn=dataset.collate_fn)
     t  = args.tokenizer
     for batch in loader:
-        print(t.decode(batch['input']['input_ids'][5]))
-        print(t.decode(batch['target']['input_ids'][5]))
+        for i in range(len(batch['input']['input_ids'])):
+            print(t.decode(batch['input']['input_ids'][i]))
+            print(t.decode(batch['target']['input_ids'][i]))
         
         pdb.set_trace()
     
