@@ -136,26 +136,26 @@ class Dataset(torch.utils.data.Dataset):
                         a_t.append(a)
                         did_t.append(d_id)
                         tid_t.append(t_id)
-                y_n, n_n = a_t.count('yes'), a_t.count('no')
-                if y_n>=n_n:pass
-                else:
-                    y_indices = [i for i, x in enumerate(a_t) if x == "yes"]
-                    n_indices = [i for i, x in enumerate(a_t) if x == "no"]
-                    n_indices = random.sample(n_indices, y_n)
-                    indices = y_indices + n_indices
-                    
-                    a_t = [x for i, x in enumerate(a_t) if i in indices]
-                    q_t = [x for i, x in enumerate(q_t) if i in indices]
-                    did_t = [x for i, x in enumerate(did_t) if i in indices]
-                    tid_t = [x for i, x in enumerate(tid_t) if i in indices]
-                    k_t = [x for i, x in enumerate(k_t) if i in indices]
-                    
-                    
-                schema += k_t
-                answer += a_t
-                question += q_t
-                dial_id += did_t
-                turn_id += tid_t
+                    y_n, n_n = a_t.count('yes'), a_t.count('no')
+                    if y_n>=n_n:pass
+                    else:
+                        y_indices = [i for i, x in enumerate(a_t) if x == "yes"]
+                        n_indices = [i for i, x in enumerate(a_t) if x == "no"]
+                        n_indices = random.sample(n_indices, y_n)
+                        indices = y_indices + n_indices
+                        
+                        a_t = [x for i, x in enumerate(a_t) if i in indices]
+                        q_t = [x for i, x in enumerate(q_t) if i in indices]
+                        did_t = [x for i, x in enumerate(did_t) if i in indices]
+                        tid_t = [x for i, x in enumerate(tid_t) if i in indices]
+                        k_t = [x for i, x in enumerate(k_t) if i in indices]
+                        
+                        
+                    schema += k_t
+                    answer += a_t
+                    question += q_t
+                    dial_id += did_t
+                    turn_id += tid_t
                 # ########################################################################    
    
                 
