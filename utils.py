@@ -3,6 +3,8 @@ import os
 import csv, json
 
 import logging
+
+from torch import _batch_norm_impl_index
 import ontology
 from collections import defaultdict
 import pdb
@@ -30,7 +32,7 @@ def makedirs(path):
        if not os.path.isdir(path): 
            raise
        
-def evaluate_metrics(all_prediction, raw_file, detail_log):
+def evaluate_metrics(args, all_prediction, raw_file, detail_log):
     # schema = ontology.QA['all-domain'][:-1] # next response 는 제외
     schema = ontology.QA['all-domain']# next response 는 제외
     domain = ontology.QA['bigger-domain']
@@ -54,6 +56,24 @@ def evaluate_metrics(all_prediction, raw_file, detail_log):
                 logger.info(f'label : {sorted(belief_label)}')
                 logger.info(f'pred : {sorted(belief_pred)}')
                 
+                
+            if args.zeroshot_domain:
+                n_belief_label = []
+                n_belief_pred = []
+                
+                for item in belief_label:
+                    if item.startswith(args.zeroshot_domain):
+                        n_belief_label.append(item)
+                        
+                for item in belief_pred:
+                    if item.startswith(args.zeroshot_domain):
+                        n_belief_pred.append(item)
+
+                
+                belief_label = n_belief_label
+                belief_pred = n_belief_pred
+                
+                        
             if set(belief_label) == set(belief_pred):
                 joint_acc += 1
             joint_cnt +=1

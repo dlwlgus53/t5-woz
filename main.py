@@ -32,9 +32,9 @@ parser.add_argument('--max_epoch' ,  type = int, default=1)
 parser.add_argument('--base_trained', type = str, default = "google/t5-large-ssm-nq", help =" pretrainned model from 🤗")
 parser.add_argument('--pretrained_model' , type = str,  help = 'pretrainned model')
 parser.add_argument('--debugging' , type = bool,  default = False, help = "Don't save file")
-parser.add_argument('--dev_path' ,  type = str,  default = '../woz-data/MultiWOZ_2.1/dev_data.json')
-parser.add_argument('--train_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data.json')
-parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/test_data.json')
+parser.add_argument('--dev_path' ,  type = str,  default = '../woz-data/MultiWOZ_2.0/dev_data.json')
+parser.add_argument('--train_path' , type = str,  default = '../woz-data/MultiWOZ_2.0/train_data.json')
+parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.0/test_data.json')
 parser.add_argument('--detail_log' , type = int,  default = 0)
 parser.add_argument('--save_prefix', type = str, help = 'prefix for all savings', default = '')
 parser.add_argument('-n', '--nodes', default=1,type=int, metavar='N')
@@ -155,6 +155,7 @@ def evaluate():
     schema_acc.update(domain_acc)
     schema_acc['loss'] = loss
     
+    print(schema_acc)
     
     utils.dict_to_csv(schema_acc, f'{args.save_prefix}{args.data_rate}.csv')
     
@@ -169,7 +170,6 @@ def main():
     with open(args.never_split_file, "r") as f:
         never_split = f.read().splitlines() 
     special_tokens_dict = {'additional_special_tokens': never_split}
-    print(special_tokens_dict)
     
     args.world_size = args.gpus * args.nodes 
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
