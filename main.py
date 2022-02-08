@@ -4,7 +4,9 @@ import torch
 import logging
 import argparse
 import datetime
-from dataset import Dataset
+from dataset_pre import Dataset as Dataset_pre
+from dataset_few import Dataset as Dataset_few
+
 import init
 
 from collections import OrderedDict
@@ -42,16 +44,24 @@ parser.add_argument('-g', '--gpus', default=4, type=int,help='number of gpus per
 parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
 parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
 parser.add_argument('--aux',  default=1, type=int, help='number of gpus per node')
-parser.add_argument('--zeroshot_domain', type=str, choices=["restaurant", "hotel", "attraction", "train", "taxi"],help='restaurant|hotel|attraction|train|taxi')
+parser.add_argument('--zeroshot_domain', required = True, type=str, choices=["restaurant", "hotel", "attraction", "train", "taxi"],help='restaurant|hotel|attraction|train|taxi')
 parser.add_argument('--train_continue', type=int, default = 0)
+parser.add_argument('--few_pre', type=int, default = 1)
 
 args = parser.parse_args()
 init.init_experiment(args)
 logger = logging.getLogger("my")
        
-def load_trained(args,model, optimizer = None):
+def load_trained(args,model, path = None, optimizer = None):
     logger.info(f"User pretrained model{args.pretrained_model}")
-    state_dict = torch.load(args.pretrained_model)
+    
+    
+    if path:
+        state_dict = torch.load(path)
+    else:
+        state_dict = torch.load(args.pretrained_model)
+        
+        
     new_state_dict = OrderedDict()
     for k, v in state_dict.items():
         name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
@@ -86,15 +96,18 @@ def main_worker(gpu, args):
         
     model = T5ForConditionalGeneration.from_pretrained(args.base_trained, return_dict=True).to(gpu)
     
-    if args.pretrained_model and args.train_continue:
+    if not args.few_pre:
         logger.info(f"Use pretrained model{args.pretrained_model} in train")
         load_trained(args,model)
-    else:        
-        pass        
+       
     model = DDP(model, device_ids=[gpu])
     
-    train_dataset =Dataset(args, args.train_path, 'train')
-    val_dataset =Dataset(args, args.dev_path, 'val')
+    if args.few_pre:
+        train_dataset =Dataset_pre(args, args.train_path, 'train')
+        val_dataset =Dataset_pre(args, args.dev_path, 'val')
+    else:
+        train_dataset =Dataset_few(args, args.train_path, 'train')
+        val_dataset =Dataset_few(args, args.dev_path, 'val')
     
     train_loader = get_loader(train_dataset, batch_size)
     dev_loader = get_loader(val_dataset, batch_size)
@@ -123,9 +136,15 @@ def main_worker(gpu, args):
             min_loss = loss
             best_performance['min_loss'] = min_loss.item()
             if not args.debugging:
-                torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}.pt")
-                torch.save(optimizer.state_dict(), f"model/optimizer/woz{args.save_prefix}{args.data_rate}.pt")
-                logger.info(f"safely saved in model/woz{args.save_prefix}{args.data_rate}.pt")
+                if args.few_pre:
+                    torch.save(model.state_dict(), f"model/woz{args.save_prefix}.pt")
+                    torch.save(optimizer.state_dict(), f"model/optimizer/woz{args.save_prefix}.pt")
+                    logger.info(f"safely saved in model/woz{args.save_prefix}.pt")
+                else:
+                    torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}.pt")
+                    torch.save(optimizer.state_dict(), f"model/optimizer/woz{args.save_prefix}{args.data_rate}.pt")
+                    logger.info(f"safely saved in model/woz{args.save_prefix}{args.data_rate}.pt")
+                    
                 
     if gpu==0:            
         logger.info(f"Best Score :  {best_performance}" )
@@ -133,7 +152,7 @@ def main_worker(gpu, args):
     
     
 def evaluate():
-    test_dataset =Dataset(args, args.test_path, 'test')
+    test_dataset =Dataset_few(args, args.test_path, 'test')
     loader = torch.utils.data.DataLoader(
         dataset=test_dataset, batch_size=args.test_batch_size, pin_memory=True,
         num_workers=0, shuffle=False, collate_fn=test_dataset.collate_fn)
@@ -142,7 +161,7 @@ def evaluate():
     
     if args.pretrained_model:
         logger.info(f"User pretrained model{args.pretrained_model} in eval")
-        load_trained(args,model)
+        load_trained(args,model, path = f"model/woz{args.save_prefix}{args.data_rate}.pt")
         
     joint_goal_acc, slot_acc, domain_acc, schema_acc, detail_wrong, loss = test(args, model, loader, test_dataset)
     
@@ -183,8 +202,9 @@ def main():
         except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
             logger.error(e)
             print(e)
-        
-    evaluate()
+            
+    if not args.few_pre:
+        evaluate()
 
 if __name__ =="__main__":
     utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model");

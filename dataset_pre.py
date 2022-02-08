@@ -26,8 +26,7 @@ class Dataset(torch.utils.data.Dataset):
         self.belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         self.gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         self.gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
-        self.data_type = data_type
-        self.is_over = False
+        
         
         if self.data_type == 'train':
             raw_path = f'{data_path[:-5]}1.json'
@@ -80,7 +79,6 @@ class Dataset(torch.utils.data.Dataset):
         user_say= defaultdict(lambda : defaultdict(str)) 
         gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
-        
         question = []
         answer = []
         schema = []
@@ -88,10 +86,6 @@ class Dataset(torch.utils.data.Dataset):
         turn_id = []
         
         for d_number, d_id in enumerate(dataset.keys()):
-            if d_number/len(dataset.keys()) > data_rate:
-                # now stop training that thing
-                self.is_over = True
-                
             dialogue = dataset[d_id]['log']
             dialogue_text = ""
             
@@ -102,15 +96,8 @@ class Dataset(torch.utils.data.Dataset):
                 for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
                     domain = key.split("-")[0]
                     
-                    # train은 그 도메인이면 넘어가.
-                    if self.zeroshot_domain and \
-                        self.data_type != 'test' and domain == self.zeroshot_domain and self.is_over: continue
-                        
-                        
-                    # test 는 다른 도메인을 굳이 하지 않아    
-                    if self.zeroshot_domain and \
-                        self.data_type == 'test' and domain != self.zeroshot_domain: continue
-                    
+                    if domain == self.zeroshot_domain: continue
+
                     ##################### changed part #################################
                     q = ontology.QA[key]['description1']
                     c = dialogue_text
@@ -130,7 +117,7 @@ class Dataset(torch.utils.data.Dataset):
                     # domain aux
                     for key_idx, key in enumerate(ontology.QA['bigger-domain']): # TODO
                         domain = key
-                        if self.zeroshot_domain and domain == self.zeroshot_domain: continue
+                        if domain == self.zeroshot_domain: continue
                         q = ontology.QA["general-question"] +domain + "?" 
                         c = dialogue_text
                         a = 'no'
