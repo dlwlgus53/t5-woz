@@ -35,6 +35,7 @@ class Dataset(torch.utils.data.Dataset):
         
         
         if args.do_short:
+            print("hehrerer?")
             raw_path = f'../woz-data/MultiWOZ_2.1/train_data0.001.json' 
                 
 
@@ -86,7 +87,7 @@ class Dataset(torch.utils.data.Dataset):
         turn_id = []
         
         for d_number, d_id in enumerate(dataset.keys()):
-            if d_number/len(dataset.keys())  > data_rate:
+            if self.data_type != 'test' and d_number/len(dataset.keys())  > data_rate:
                 break 
                         
             dialogue = dataset[d_id]['log']
