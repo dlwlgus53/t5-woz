@@ -119,8 +119,9 @@ def main_worker(gpu, args):
         train(args, gpu, model, train_loader, optimizer, train_dataset)
         loss = valid(args, gpu, model, dev_loader, args.data_rate, val_dataset)
         logger.info("Epoch : %d,  Loss : %.04f" % (epoch, loss))
-
+        dist.all_reduce(loss); loss /= dist.get_world_size()
         if gpu == 0 and loss < min_loss:
+            logger.info("Epoch : %d,  Reduced Loss : %.04f" % (epoch, loss))
             logger.info("New best")
             min_loss = loss
             best_performance['min_loss'] = min_loss.item()
