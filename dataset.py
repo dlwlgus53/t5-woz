@@ -41,10 +41,10 @@ class Dataset(torch.utils.data.Dataset):
 
         logger.info(f"load {self.data_type} raw file {raw_path}")
         raw_dataset = json.load(open(raw_path , "r"))
-        turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say= self.seperate_data(raw_dataset)
+        turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say, is_aux= self.seperate_data(raw_dataset)
 
         assert len(turn_id) == len(dial_id) == len(question)\
-            == len(schema) == len(answer)
+            == len(schema) == len(answer) == len(is_aux)
             
         self.answer = answer # for debugging
         self.target = self.encode(answer)
@@ -53,6 +53,8 @@ class Dataset(torch.utils.data.Dataset):
         self.question = question
         self.schema = schema
         self.user_say = user_say
+        self.is_aux = is_aux
+        
         self.gold_belief_state = gold_belief_state
         self.gold_context = gold_context
             
@@ -86,11 +88,12 @@ class Dataset(torch.utils.data.Dataset):
         schema = []
         dial_id = []
         turn_id = []
+        is_aux = []
         
         for d_id in dataset.keys():
             dialogue = dataset[d_id]['log']
             dialogue_text = ""
-            
+        
             for t_id, turn in enumerate(dialogue):
                 dialogue_text += ' [user] '
                 dialogue_text += turn['user']
@@ -118,7 +121,28 @@ class Dataset(torch.utils.data.Dataset):
                     question.append(q)
                     dial_id.append(d_id)
                     turn_id.append(t_id)
+                    is_aux.append(False)
                 # ###########changed part ###########################################
+
+                # ########################################################################    
+   
+                
+                gold_belief_state[d_id][t_id] = turn['belief']
+                gold_context[d_id][t_id] = dialogue_text
+                
+                dialogue_text += ' [sys] '
+                dialogue_text += turn['response']
+                
+        
+        
+        for d_id in dataset.keys(): 
+            dialogue = dataset[d_id]['log']
+            dialogue_text = ""
+            
+            for t_id, turn in enumerate(dialogue):
+                dialogue_text += ' [user] '
+                dialogue_text += turn['user']
+                user_say[d_id][t_id] = turn['user']
                 if self.data_type == 'train' and self.aux == 1:
                     for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
                         domain = key.split("-")[0]
@@ -135,35 +159,29 @@ class Dataset(torch.utils.data.Dataset):
                         question.append(q)
                         dial_id.append(d_id)
                         turn_id.append(t_id)
-                # ########################################################################    
-   
-                
-                gold_belief_state[d_id][t_id] = turn['belief']
-                gold_context[d_id][t_id] = dialogue_text
-                
-                dialogue_text += ' [sys] '
-                dialogue_text += turn['response']
-                
+                        is_aux.append(True)
                     
-        for_sort = [[t,d,q,s,a] for (t,d,q,s,a) in zip(turn_id, dial_id,  question, schema, answer)]
-        sorted_items = sorted(for_sort, key=lambda x: (x[0], x[1]))
+        # for_sort = [[t,d,q,s,a] for (t,d,q,s,a) in zip(turn_id, dial_id,  question, schema, answer)]
+        # sorted_items = sorted(for_sort, key=lambda x: (x[0], x[1]))
         
-        turn_id = [s[0] for s in sorted_items]
-        dial_id = [s[1] for s in sorted_items]
-        question = [s[2] for s in sorted_items]
-        schema_sort = [s[3] for s in sorted_items]
-        answer = [s[4] for s in sorted_items]
+        # turn_id = [s[0] for s in sorted_items]
+        # dial_id = [s[1] for s in sorted_items]
+        # question = [s[2] for s in sorted_items]
+        # schema_sort = [s[3] for s in sorted_items]
+        # answer = [s[4] for s in sorted_items]
         
         
         # sort guaranteed to be stable : it is important because of question!   
-        assert schema_sort == schema
-        return turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say
+        # assert schema_sort == schema
+        return turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say, is_aux
 
     def __getitem__(self, index):
         dial_id = self.dial_id[index]
         turn_id = self.turn_id[index]
         schema = self.schema[index]
         question = self.question[index]
+        is_aux = self.is_aux[index]
+        
         gold_context = self.gold_context[index]
         gold_belief_state = self.gold_belief_state[index]
         
@@ -171,7 +189,7 @@ class Dataset(torch.utils.data.Dataset):
         target = {k:v.squeeze() for (k,v) in self.target[index].items()}
         
         return {"target": target,"turn_id" : turn_id,"question" : question, "gold_context" : gold_context,\
-            "dial_id" : dial_id, "schema":schema,  "gold_belief_state" : gold_belief_state }
+            "dial_id" : dial_id, "is_aux" : is_aux, "schema":schema,  "gold_belief_state" : gold_belief_state }
     
     def _belief_clean(self, belief_dict):
         clean_belief = str(belief_dict).replace('{','').replace('}','')
@@ -192,6 +210,8 @@ class Dataset(torch.utils.data.Dataset):
         question = [x["question"] for x in batch]
         schema = [x["schema"] for x in batch]
         target_list = [x["target"] for x in batch]
+        is_aux = [x["is_aux"] for x in batch]
+        
         
         if self.data_type == 'test':
             belief = [self.belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
@@ -209,8 +229,8 @@ class Dataset(torch.utils.data.Dataset):
         pad_source = self.tokenizer.pad(source_list,padding=True)
         pad_target = self.tokenizer.pad(target_list,padding=True)
         
-        return {"input": pad_source, "target": pad_target,\
-                 "schema":schema, "dial_id":dial_id, "turn_id":turn_id}
+        return {"input": pad_source, "target": pad_target,"is_aux" : is_aux, \
+                "schema":schema, "dial_id":dial_id, "turn_id":turn_id }
         
 
 if __name__ == '__main__':

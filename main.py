@@ -19,6 +19,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration,Adafactor
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--data_rate' ,  type = float, default=0.01)
+parser.add_argument('--alpha' ,  type = float, default=1.0)
 parser.add_argument('--do_train' ,  type = int, default=1)
 parser.add_argument('--do_short' ,  type = int, default=1)
 parser.add_argument('--do_test' ,  type = int, default=1)
@@ -107,8 +108,9 @@ def main_worker(gpu, args):
                     weight_decay=0.0,
                     relative_step=False,
                     scale_parameter=False,
-                    warmup_init=False)
-    
+                    warmup_init=False)    
+
+
     min_loss = float('inf')
     best_performance = {}
     logger.info("Trainning start")

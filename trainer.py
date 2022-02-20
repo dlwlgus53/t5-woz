@@ -1,3 +1,4 @@
+from pickle import FALSE
 import torch
 import pdb 
 import json
@@ -30,8 +31,14 @@ def train(args, gpu, model, train_loader, optimizer, train_dataset):
             schema = batch['schema'][idx]
             train_dataset.belief_state[dial_id][turn_id][schema] = outputs_text[idx]
             
-        loss =outputs.loss
-        loss.backward()
+        if batch['is_aux'][0] == False:
+            
+            loss =outputs.loss
+            
+        else:
+            loss =outputs.loss * args.alpha
+            
+        loss.backward() 
         optimizer.step()
     
         if (iter + 1) % 50 == 0 and gpu==0:
