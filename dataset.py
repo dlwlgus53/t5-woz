@@ -41,10 +41,10 @@ class Dataset(torch.utils.data.Dataset):
 
         logger.info(f"load {self.data_type} raw file {raw_path}")
         raw_dataset = json.load(open(raw_path , "r"))
-        turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say= self.seperate_data(raw_dataset)
+        turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say, is_aux= self.seperate_data(raw_dataset)
 
         assert len(turn_id) == len(dial_id) == len(question)\
-            == len(schema) == len(answer)
+            == len(schema) == len(answer) == len(is_aux)
             
         self.answer = answer # for debugging
         self.target = self.encode(answer)
@@ -53,6 +53,8 @@ class Dataset(torch.utils.data.Dataset):
         self.question = question
         self.schema = schema
         self.user_say = user_say
+        self.is_aux = is_aux
+        
         self.gold_belief_state = gold_belief_state
         self.gold_context = gold_context
             
@@ -75,7 +77,7 @@ class Dataset(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.dial_id)
-    
+
     def seperate_data(self, dataset):
         user_say= defaultdict(lambda : defaultdict(str)) 
         gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
@@ -86,11 +88,12 @@ class Dataset(torch.utils.data.Dataset):
         schema = []
         dial_id = []
         turn_id = []
+        is_aux = []
         
         for d_id in dataset.keys():
             dialogue = dataset[d_id]['log']
             dialogue_text = ""
-            
+        
             for t_id, turn in enumerate(dialogue):
                 dialogue_text += ' [user] '
                 dialogue_text += turn['user']
@@ -101,6 +104,9 @@ class Dataset(torch.utils.data.Dataset):
                     if self.zeroshot_domain and \
                         self.data_type != 'test' and domain == self.zeroshot_domain: continue
                         
+                    if self.zeroshot_domain and \
+                        self.data_type == 'test' and domain != self.zeroshot_domain: continue
+                    
                     ##################### changed part #################################
                     q = ontology.QA[key]['description1']
                     c = dialogue_text
@@ -115,46 +121,7 @@ class Dataset(torch.utils.data.Dataset):
                     question.append(q)
                     dial_id.append(d_id)
                     turn_id.append(t_id)
-                # ###########changed part ###########################################
-                if self.data_type == 'train' and self.aux == 1:
-                    k_t,a_t,q_t,did_t,tid_t = [],[],[],[],[] 
-                    for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
-                        k_t.append(key)
-                        domain = key.split("-")[0]
-                        if self.zeroshot_domain and domain == self.zeroshot_domain: continue
-                        domain_name = " ".join(key.split("-"))
-                        q = ontology.QA["general-question"] + " "+domain_name + "?" 
-                        q_t.append(q)
-                        c = dialogue_text
-                        if key in turn['belief']: # 언급을 한 경우
-                            a = 'yes'
-                        else:
-                            a = 'not mentioned'
-                        a_t.append(a)
-                        did_t.append(d_id)
-                        tid_t.append(t_id)
-                    y_n, n_n = a_t.count('yes'), a_t.count('no')
-                    if y_n>=n_n:pass
-                    else:
-                        y_indices = [i for i, x in enumerate(a_t) if x == "yes"]
-                        n_indices = [i for i, x in enumerate(a_t) if x == "no"]
-                        n_indices = random.sample(n_indices, y_n)
-                        indices = y_indices + n_indices
-                        
-                        a_t = [x for i, x in enumerate(a_t) if i in indices]
-                        q_t = [x for i, x in enumerate(q_t) if i in indices]
-                        did_t = [x for i, x in enumerate(did_t) if i in indices]
-                        tid_t = [x for i, x in enumerate(tid_t) if i in indices]
-                        k_t = [x for i, x in enumerate(k_t) if i in indices]
-                        
-                        
-                    schema += k_t
-                    answer += a_t
-                    question += q_t
-                    dial_id += did_t
-                    turn_id += tid_t
-                # ########################################################################    
-   
+                    is_aux.append(False)
                 
                 gold_belief_state[d_id][t_id] = turn['belief']
                 gold_context[d_id][t_id] = dialogue_text
@@ -162,26 +129,42 @@ class Dataset(torch.utils.data.Dataset):
                 dialogue_text += ' [sys] '
                 dialogue_text += turn['response']
                 
-                    
-        for_sort = [[t,d,q,s,a] for (t,d,q,s,a) in zip(turn_id, dial_id,  question, schema, answer)]
-        sorted_items = sorted(for_sort, key=lambda x: (x[0], x[1]))
-        
-        turn_id = [s[0] for s in sorted_items]
-        dial_id = [s[1] for s in sorted_items]
-        question = [s[2] for s in sorted_items]
-        schema_sort = [s[3] for s in sorted_items]
-        answer = [s[4] for s in sorted_items]
         
         
-        # sort guaranteed to be stable : it is important because of question!   
-        # assert schema_sort == schema
-        return turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say
+        for d_id in dataset.keys(): 
+            dialogue = dataset[d_id]['log']
+            dialogue_text = ""
+            
+            for t_id, turn in enumerate(dialogue):
+                dialogue_text += ' [user] '
+                dialogue_text += turn['user']
+                user_say[d_id][t_id] = turn['user']
+                if self.data_type == 'train' and self.aux == 1:
+                    for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
+                        domain = key.split("-")[0]
+                        if self.zeroshot_domain and domain == self.zeroshot_domain: continue
+                        domain_name = " ".join(key.split("-"))
+                        q = ontology.QA["general-question"] + " "+domain_name + "?" 
+                        c = dialogue_text
+                        if key in turn['belief']: # 언급을 한 경우
+                            a = 'yes'
+                        else:
+                            a = ontology.QA['NOT_MENTIONED']
+                        schema.append(key)
+                        answer.append(a)
+                        question.append(q)
+                        dial_id.append(d_id)
+                        turn_id.append(t_id)
+                        is_aux.append(True)
 
+        return turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say, is_aux
     def __getitem__(self, index):
         dial_id = self.dial_id[index]
         turn_id = self.turn_id[index]
         schema = self.schema[index]
         question = self.question[index]
+        is_aux = self.is_aux[index]
+        
         gold_context = self.gold_context[index]
         gold_belief_state = self.gold_belief_state[index]
         
@@ -189,7 +172,7 @@ class Dataset(torch.utils.data.Dataset):
         target = {k:v.squeeze() for (k,v) in self.target[index].items()}
         
         return {"target": target,"turn_id" : turn_id,"question" : question, "gold_context" : gold_context,\
-            "dial_id" : dial_id, "schema":schema,  "gold_belief_state" : gold_belief_state }
+            "dial_id" : dial_id, "is_aux" : is_aux, "schema":schema,  "gold_belief_state" : gold_belief_state }
     
     def _belief_clean(self, belief_dict):
         clean_belief = str(belief_dict).replace('{','').replace('}','')
@@ -210,6 +193,8 @@ class Dataset(torch.utils.data.Dataset):
         question = [x["question"] for x in batch]
         schema = [x["schema"] for x in batch]
         target_list = [x["target"] for x in batch]
+        is_aux = [x["is_aux"] for x in batch]
+        
         
         if self.data_type == 'test':
             belief = [self.belief_state[d][t-1]for (d,t) in zip(dial_id, turn_id)] 
@@ -227,8 +212,8 @@ class Dataset(torch.utils.data.Dataset):
         pad_source = self.tokenizer.pad(source_list,padding=True)
         pad_target = self.tokenizer.pad(target_list,padding=True)
         
-        return {"input": pad_source, "target": pad_target,\
-                 "schema":schema, "dial_id":dial_id, "turn_id":turn_id}
+        return {"input": pad_source, "target": pad_target,"is_aux" : is_aux, \
+                "schema":schema, "dial_id":dial_id, "turn_id":turn_id }
         
 
 if __name__ == '__main__':
