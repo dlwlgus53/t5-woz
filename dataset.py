@@ -122,10 +122,6 @@ class Dataset(torch.utils.data.Dataset):
                     dial_id.append(d_id)
                     turn_id.append(t_id)
                     is_aux.append(False)
-                # ###########changed part ###########################################
-
-                # ########################################################################    
-   
                 
                 gold_belief_state[d_id][t_id] = turn['belief']
                 gold_context[d_id][t_id] = dialogue_text
@@ -160,19 +156,7 @@ class Dataset(torch.utils.data.Dataset):
                         dial_id.append(d_id)
                         turn_id.append(t_id)
                         is_aux.append(True)
-                    
-        # for_sort = [[t,d,q,s,a] for (t,d,q,s,a) in zip(turn_id, dial_id,  question, schema, answer)]
-        # sorted_items = sorted(for_sort, key=lambda x: (x[0], x[1]))
-        
-        # turn_id = [s[0] for s in sorted_items]
-        # dial_id = [s[1] for s in sorted_items]
-        # question = [s[2] for s in sorted_items]
-        # schema_sort = [s[3] for s in sorted_items]
-        # answer = [s[4] for s in sorted_items]
-        
-        
-        # sort guaranteed to be stable : it is important because of question!   
-        # assert schema_sort == schema
+
         return turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say, is_aux
 
     def __getitem__(self, index):
