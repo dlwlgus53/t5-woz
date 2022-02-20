@@ -20,7 +20,7 @@ parser = argparse.ArgumentParser()
 
 parser.add_argument('--data_rate' ,  type = float, default=0.01)
 parser.add_argument('--do_train' ,  type = int, default=1)
-parser.add_argument('--do_short' ,  type = int, default=1)
+parser.add_argument('--do_short' ,  type = int, default=0)
 parser.add_argument('--do_test' ,  type = int, default=1)
 parser.add_argument('--max_length' ,  type = int, default=128)
 parser.add_argument('--dst_student_rate' ,  type = float, default=1.0)

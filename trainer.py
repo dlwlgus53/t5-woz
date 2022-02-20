@@ -49,8 +49,8 @@ def valid(args, gpu, model, dev_loader, data_rate, val_dataset):
     logger.info("Validation start")
     with torch.no_grad():
         for iter,batch in enumerate(dev_loader):
-            if iter/len(dev_loader) > data_rate:
-                break
+            #if iter/len(dev_loader) > data_rate:
+            #    break
             input_ids = batch['input']['input_ids'].to(f'cuda:{gpu}')
             labels = batch['target']['input_ids'].to(f'cuda:{gpu}')
         
