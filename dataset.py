@@ -120,42 +120,21 @@ class Dataset(torch.utils.data.Dataset):
                     turn_id.append(t_id)
                 # ###########changed part ###########################################
                 if self.data_type == 'train' and self.aux == 1:
-                    k_t,a_t,q_t,did_t,tid_t = [],[],[],[],[] 
                     for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
-                        k_t.append(key)
                         domain = key.split("-")[0]
                         if self.zeroshot_domain and domain == self.zeroshot_domain: continue
                         domain_name = " ".join(key.split("-"))
                         q = ontology.QA["general-question"] + " "+domain_name + "?" 
-                        q_t.append(q)
                         c = dialogue_text
                         if key in turn['belief']: # 언급을 한 경우
                             a = 'yes'
                         else:
-                            a = 'no'
-                        a_t.append(a)
-                        did_t.append(d_id)
-                        tid_t.append(t_id)
-                    y_n, n_n = a_t.count('yes'), a_t.count('no')
-                    if y_n>=n_n:pass
-                    else:
-                        y_indices = [i for i, x in enumerate(a_t) if x == "yes"]
-                        n_indices = [i for i, x in enumerate(a_t) if x == "no"]
-                        n_indices = random.sample(n_indices, y_n)
-                        indices = y_indices + n_indices
-                        
-                        a_t = [x for i, x in enumerate(a_t) if i in indices]
-                        q_t = [x for i, x in enumerate(q_t) if i in indices]
-                        did_t = [x for i, x in enumerate(did_t) if i in indices]
-                        tid_t = [x for i, x in enumerate(tid_t) if i in indices]
-                        k_t = [x for i, x in enumerate(k_t) if i in indices]
-                        
-                        
-                    schema += k_t
-                    answer += a_t
-                    question += q_t
-                    dial_id += did_t
-                    turn_id += tid_t
+                            a = ontology.QA['NOT_MENTIONED']
+                        schema.append(key)
+                        answer.append(a)
+                        question.append(q)
+                        dial_id.append(d_id)
+                        turn_id.append(t_id)
                 # ########################################################################    
    
                 
@@ -177,7 +156,7 @@ class Dataset(torch.utils.data.Dataset):
         
         
         # sort guaranteed to be stable : it is important because of question!   
-        # assert schema_sort == schema
+        assert schema_sort == schema
         return turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say
 
     def __getitem__(self, index):

@@ -182,6 +182,7 @@ def main():
                 join=True)
         except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
             logger.error(e)
+            print(e)
         
     evaluate()
 
