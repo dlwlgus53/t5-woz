@@ -92,7 +92,7 @@ class Dataset(torch.utils.data.Dataset):
         is_aux = []
         is_fewrate_over = False
         for d_idx, d_id in enumerate(dataset.keys()):
-            if d_idx/len(dataset.keys()) > self.data_rate:
+            if is_fewrate_over == False and d_idx/len(dataset.keys()) > self.data_rate:
                 is_fewrate_over = True
             dialogue = dataset[d_id]['log']
             dialogue_text = ""
@@ -103,7 +103,7 @@ class Dataset(torch.utils.data.Dataset):
                 for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
                     domain = key.split("-")[0]
                     if self.fewshot_domain and self.data_type == 'train'\
-                        and domain == self.fewshot_domain and is_fewrate_over == True : continue 
+                        and domain == self.fewshot_domain and is_fewrate_over == True :continue 
                         
                     if self.fewshot_domain and self.data_type != 'train' \
                         and domain != self.fewshot_domain: continue
@@ -229,22 +229,37 @@ if __name__ == '__main__':
     logger = logging.getLogger("my")
 
     parser = argparse.ArgumentParser()
-
-    parser.add_argument('--data_rate' ,  type = float, default=0.1)
-    parser.add_argument('--student_rate' ,  type = float, default=0.0)
+    parser.add_argument('--data_rate' ,  type = float, default=0.01)
+    parser.add_argument('--alpha' ,  type = float, default=0.7)
+    parser.add_argument('--do_train' ,  type = int, default=1)
     parser.add_argument('--do_short' ,  type = int, default=1)
-    parser.add_argument('--dst_student_rate' ,  type = float, default=0.5)
-    parser.add_argument('--res_student_rate' ,  type = float, default=0.5)
-    parser.add_argument('--seed' ,  type = float, default=1)
-    parser.add_argument('--max_length' ,  type = float, default=128)
+    parser.add_argument('--do_test' ,  type = int, default=1)
+    parser.add_argument('--max_length' ,  type = int, default=128)
+    parser.add_argument('--dst_student_rate' ,  type = float, default=1.0)
+    parser.add_argument('--seed' ,  type = int, default=1)
+    parser.add_argument('--batch_size' , type = int, default=4)
+    parser.add_argument('--test_batch_size' , type = int, default=16)
+    parser.add_argument('--port' , type = int,  default = 12355)
+    parser.add_argument('--max_epoch' ,  type = int, default=1)
+    parser.add_argument('--base_trained', type = str, default = "google/t5-large-ssm-nq", help =" pretrainned model from 🤗")
+    parser.add_argument('--pretrained_model' , type = str,  help = 'pretrainned model')
+    parser.add_argument('--debugging' , type = bool,  default = False, help = "Don't save file")
+    parser.add_argument('--dev_path' ,  type = str,  default = '../woz-data/MultiWOZ_2.1/dev_data.json')
+    parser.add_argument('--train_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/train_data.json')
+    parser.add_argument('--test_path' , type = str,  default = '../woz-data/MultiWOZ_2.1/test_data.json')
+    parser.add_argument('--detail_log' , type = int,  default = 0)
+    parser.add_argument('--save_prefix', type = str, help = 'prefix for all savings', default = '')
+    parser.add_argument('-n', '--nodes', default=1,type=int, metavar='N')
+    parser.add_argument('-g', '--gpus', default=4, type=int,help='number of gpus per node')
+    parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
     parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
-    parser.add_argument('--base_trained', type = str, default = "google/t5-small-ssm-nq", help =" pretrainned model from 🤗")
-    parser.add_argument('--zeroshot_domain', type=str, help='zeroshot option')
-    parser.add_argument('--aux', type=int,default = 1)
+    parser.add_argument('--aux',  default=1, type=int, help='number of gpus per node')
+    parser.add_argument('--fewshot_domain', type=str, choices=["restaurant", "hotel", "attraction", "train", "taxi"],help='restaurant|hotel|attraction|train|taxi')
+    parser.add_argument('--train_continue', type=int, default = 0)
+
     
     args = parser.parse_args()
-    args.data_path = '../woz-data/MultiWOZ_2.1/train_data.json'
-    
+    args.fewshot_domain = 'hotel'
     from transformers import T5Tokenizer
     args.tokenizer = T5Tokenizer.from_pretrained('t5-small')
     with open(args.never_split_file, "r") as f:
@@ -254,13 +269,12 @@ if __name__ == '__main__':
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
     args.tokenizer.add_special_tokens(special_tokens_dict)
     
-    dataset = Dataset(args, args.data_path, 'train')
+    dataset = Dataset(args, args.train_path, 'train')
     loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=16, collate_fn=dataset.collate_fn)
     t  = args.tokenizer
     for batch in loader:
         print(t.decode(batch['input']['input_ids'][5]))
         print(t.decode(batch['target']['input_ids'][5]))
-        
         pdb.set_trace()
     
     
