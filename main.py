@@ -168,7 +168,7 @@ def evaluate():
     
 def main():
     logger.info(args)
-    utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out")
+    
     with open(args.never_split_file, "r") as f:
         never_split = f.read().splitlines() 
     special_tokens_dict = {'additional_special_tokens': never_split}
@@ -190,8 +190,8 @@ def main():
     evaluate()
 
 if __name__ =="__main__":
-    utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model");
-    utils.makedirs("./model/optimizer");
+    utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out")
+    utils.makedirs("./model/optimizer"); utils.makedirs("./logs/csvs"); utils.makedirs("./logs/jsons"); 
     logger.info(f"{'-' * 30}")
     logger.info("Start New Trainning")
     start = time.time()
