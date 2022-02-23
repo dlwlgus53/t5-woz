@@ -31,7 +31,7 @@ class Dataset(torch.utils.data.Dataset):
         
         
         if self.data_type == 'train':
-            raw_path = f'{data_path[:-5]}{args.data_rate}.json'
+            raw_path = f'{data_path[:-5]}1.0.json'
         else:
             raw_path = f'{data_path[:-5]}.json'
         
