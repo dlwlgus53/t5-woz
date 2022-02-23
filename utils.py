@@ -30,7 +30,7 @@ def makedirs(path):
        if not os.path.isdir(path): 
            raise
        
-def evaluate_metrics(all_prediction, raw_file, detail_log):
+def evaluate_metrics(all_prediction, raw_file, detail_log, few_domain = False):
     # schema = ontology.QA['all-domain'][:-1] # next response 는 제외
     schema = ontology.QA['all-domain']# next response 는 제외
     domain = ontology.QA['bigger-domain']
@@ -46,8 +46,7 @@ def evaluate_metrics(all_prediction, raw_file, detail_log):
         for turn_idx, turn in enumerate(dial):
             belief_label = turn['belief']
             belief_pred = all_prediction[key][str(turn_idx)]
-            
-            belief_label = [f'{k} : {v}' for (k,v) in belief_label.items()] 
+            belief_label = [f'{k} : {v}' for (k,v) in belief_label.items() if k.split("-")[0] == few_domain] 
             belief_pred = [f'{k} : {v}' for (k,v) in belief_pred.items()] 
             if turn_idx == len(dial)-1:
                 logger.info(key)
@@ -73,28 +72,6 @@ def evaluate_metrics(all_prediction, raw_file, detail_log):
     schema_acc = {k : v/turn_cnt for (k,v) in schema_acc.items()}
     
     return joint_acc/joint_cnt, turn_acc/turn_cnt, domain_acc, schema_acc, detail_wrongs
-
-def evaluate_response(belief_state, response):
-    e = Evaluator(bleu=True, success=True, richness=True)
-    answer_dict = {}
-    dial_keys = belief_state.keys()
-    
-    for dial_idx in dial_keys:
-        turn_answers = []
-        for turn_idx in range(len(response[dial_idx])):
-            turn_answer = {}
-            states = defaultdict(dict)
-            for k,v in belief_state[dial_idx][str(turn_idx)].items():
-                states[k.split("-")[0]][k.split("-")[1]] = v
-            turn_answer['state'] = states
-            turn_answer['response'] = response[dial_idx][turn_idx]
-            turn_answers.append(turn_answer)
-        
-        answer_dict[dial_idx.lower()] = turn_answers
-    with open('logs/response.json', 'w') as fp:
-        json.dump(answer_dict, fp, indent=4)
-    results = e.evaluate(answer_dict)
-    logger.info(results)
             
 def compute_acc(gold, pred, slot_temp, domain, detail_log):
     # import pdb; pdb.set_trace()

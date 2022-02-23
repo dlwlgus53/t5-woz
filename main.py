@@ -19,7 +19,7 @@ from transformers import T5Tokenizer, T5ForConditionalGeneration,Adafactor
 parser = argparse.ArgumentParser()
 
 parser.add_argument('--data_rate' ,  type = float, default=0.01)
-parser.add_argument('--alpha' ,  type = float, default=1.0)
+parser.add_argument('--alpha' ,  type = float, default=0.7)
 parser.add_argument('--do_train' ,  type = int, default=1)
 parser.add_argument('--do_short' ,  type = int, default=1)
 parser.add_argument('--do_test' ,  type = int, default=1)
@@ -43,7 +43,7 @@ parser.add_argument('-g', '--gpus', default=4, type=int,help='number of gpus per
 parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
 parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
 parser.add_argument('--aux',  default=1, type=int, help='number of gpus per node')
-parser.add_argument('--zeroshot_domain', type=str, choices=["restaurant", "hotel", "attraction", "train", "taxi"],help='restaurant|hotel|attraction|train|taxi')
+parser.add_argument('--fewshot_domain', type=str, choices=["restaurant", "hotel", "attraction", "train", "taxi"],help='restaurant|hotel|attraction|train|taxi')
 parser.add_argument('--train_continue', type=int, default = 0)
 
 args = parser.parse_args()

@@ -22,11 +22,12 @@ class Dataset(torch.utils.data.Dataset):
         self.tokenizer = args.tokenizer
         self.dst_student_rate = args.dst_student_rate
         self.max_length = args.max_length
-        self.zeroshot_domain = args.zeroshot_domain
+        self.fewshot_domain = args.fewshot_domain
         self.belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         self.gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         self.gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
         self.data_type = data_type
+        self.data_rate = args.data_rate
         
         
         if self.data_type == 'train':
@@ -89,24 +90,24 @@ class Dataset(torch.utils.data.Dataset):
         dial_id = []
         turn_id = []
         is_aux = []
-        
-        for d_id in dataset.keys():
+        is_fewrate_over = False
+        for d_idx, d_id in enumerate(dataset.keys()):
+            if d_idx/len(dataset.keys()) > self.data_rate:
+                is_fewrate_over = True
             dialogue = dataset[d_id]['log']
             dialogue_text = ""
-        
             for t_id, turn in enumerate(dialogue):
                 dialogue_text += ' [user] '
                 dialogue_text += turn['user']
                 user_say[d_id][t_id] = turn['user']
                 for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
                     domain = key.split("-")[0]
-                    
-                    if self.zeroshot_domain and \
-                        self.data_type != 'test' and domain == self.zeroshot_domain: continue
+                    if self.fewshot_domain and self.data_type == 'train'\
+                        and domain == self.fewshot_domain and is_fewrate_over == True : continue 
                         
-                    if self.zeroshot_domain and \
-                        self.data_type == 'test' and domain != self.zeroshot_domain: continue
-                    
+                    if self.fewshot_domain and self.data_type != 'train' \
+                        and domain != self.fewshot_domain: continue
+                        
                     ##################### changed part #################################
                     q = ontology.QA[key]['description1']
                     c = dialogue_text
@@ -130,8 +131,11 @@ class Dataset(torch.utils.data.Dataset):
                 dialogue_text += turn['response']
                 
         
-        
-        for d_id in dataset.keys(): 
+        is_fewrate_over = False
+        for d_idx, d_id in enumerate(dataset.keys()):
+            if d_idx/len(dataset.keys()) > self.data_rate:
+                is_fewrate_over = True
+                
             dialogue = dataset[d_id]['log']
             dialogue_text = ""
             
@@ -140,10 +144,12 @@ class Dataset(torch.utils.data.Dataset):
                 dialogue_text += turn['user']
                 user_say[d_id][t_id] = turn['user']
                 if self.data_type == 'train' and self.aux == 1:
+
                     for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
                         domain = key.split("-")[0]
-                        if self.zeroshot_domain and domain == self.zeroshot_domain: continue
                         domain_name = " ".join(key.split("-"))
+                        if self.fewshot_domain \
+                            and domain == self.fewshot_domain and is_fewrate_over == True : continue 
                         q = ontology.QA["general-question"] + " "+domain_name + "?" 
                         c = dialogue_text
                         if key in turn['belief']: # 언급을 한 경우
