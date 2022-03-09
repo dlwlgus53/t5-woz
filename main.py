@@ -125,6 +125,8 @@ def main_worker(gpu, args):
             logger.info("New best")
             min_loss = loss
             best_performance['min_loss'] = min_loss.item()
+            torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}_{epoch}.pt")
+            
             if not args.debugging:
                 torch.save(model.state_dict(), f"model/woz{args.save_prefix}{args.data_rate}.pt")
                 torch.save(optimizer.state_dict(), f"model/optimizer/woz{args.save_prefix}{args.data_rate}.pt")
