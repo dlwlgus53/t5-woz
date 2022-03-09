@@ -96,7 +96,7 @@ class Dataset(torch.utils.data.Dataset):
         turn_id = []
         is_aux = []
         for d_idx, d_id in enumerate(dataset.keys()):
-            if d_idx/len(dataset.keys()) > self.data_rate:
+            if self.data_type != 'test' and d_idx/len(dataset.keys()) > self.data_rate:
                 logger.info(f"over the {self.data_rate}.")
                 break
             dialogue = dataset[d_id]['log']
@@ -238,7 +238,7 @@ if __name__ == '__main__':
     parser.add_argument('--data_rate' ,  type = float, default=0.01)
     parser.add_argument('--alpha' ,  type = float, default=0.7)
     parser.add_argument('--do_train' ,  type = int, default=1)
-    parser.add_argument('--do_short' ,  type = int, default=1)
+    parser.add_argument('--do_short' ,  type = int, default=0)
     parser.add_argument('--do_test' ,  type = int, default=1)
     parser.add_argument('--max_length' ,  type = int, default=128)
     parser.add_argument('--dst_student_rate' ,  type = float, default=1.0)
@@ -275,12 +275,13 @@ if __name__ == '__main__':
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
     args.tokenizer.add_special_tokens(special_tokens_dict)
     
-    dataset = Dataset(args, args.train_path, 'train')
+    dataset = Dataset(args, args.test_path, 'test')
     loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=16, collate_fn=dataset.collate_fn)
     t  = args.tokenizer
     for batch in loader:
-        print(t.decode(batch['input']['input_ids'][5]))
-        print(t.decode(batch['target']['input_ids'][5]))
+        pass
+        # print(t.decode(batch['input']['input_ids'][5]))
+        # print(t.decode(batch['target']['input_ids'][5]))
         # pdb.set_trace()
     
     
