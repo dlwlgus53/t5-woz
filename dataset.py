@@ -11,7 +11,13 @@ from log_conf import init_logger
 from collections import defaultdict
 import random
 
-
+domain_id = {
+    'attraction' : '1',
+    'hotel':'2',
+    'train':'3',
+    'taxi':'4',
+    'restaurant':"5"
+}
 
 logger = logging.getLogger("my")
 class Dataset(torch.utils.data.Dataset):
@@ -22,14 +28,12 @@ class Dataset(torch.utils.data.Dataset):
         self.tokenizer = args.tokenizer
         self.dst_student_rate = args.dst_student_rate
         self.max_length = args.max_length
-        self.fewshot_domain = args.fewshot_domain
+        self.except_domain = args.except_domain.split(',')
         self.belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         self.gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         self.gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
-        self.data_type = data_type
         self.data_rate = args.data_rate
-        
-        
+
         if self.data_type == 'train':
             raw_path = f'{data_path[:-5]}1.0.json'
         else:
@@ -80,6 +84,7 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.dial_id)
     
     def seperate_data(self, dataset):
+        train_domain = defaultdict(int)
         user_say= defaultdict(lambda : defaultdict(str)) 
         gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
@@ -90,10 +95,10 @@ class Dataset(torch.utils.data.Dataset):
         dial_id = []
         turn_id = []
         is_aux = []
-        is_fewrate_over = False
         for d_idx, d_id in enumerate(dataset.keys()):
-            if is_fewrate_over == False and d_idx/len(dataset.keys()) > self.data_rate:
-                is_fewrate_over = True
+            if d_idx/len(dataset.keys()) > self.data_rate:
+                logger.info(f"over the {self.data_rate}.")
+                break
             dialogue = dataset[d_id]['log']
             dialogue_text = ""
             for t_id, turn in enumerate(dialogue):
@@ -102,12 +107,8 @@ class Dataset(torch.utils.data.Dataset):
                 user_say[d_id][t_id] = turn['user']
                 for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
                     domain = key.split("-")[0]
-                    if self.fewshot_domain and self.data_type == 'train'\
-                        and domain == self.fewshot_domain and is_fewrate_over == True :continue 
-                        
-                    if self.fewshot_domain and self.data_type != 'train' \
-                        and domain != self.fewshot_domain: continue
-                        
+                    if domain_id[domain] in self.except_domain :continue 
+                    train_domain[domain] +=1
                     ##################### changed part #################################
                     q = ontology.QA[key]['description1']
                     c = dialogue_text
@@ -116,7 +117,6 @@ class Dataset(torch.utils.data.Dataset):
                         if isinstance(a, list) : a= a[0] # in muptiple type, a == ['sunday',6]
                     else:
                         a = ontology.QA['NOT_MENTIONED']
-                    
                     schema.append(key)
                     answer.append(a)
                     question.append(q)
@@ -130,11 +130,15 @@ class Dataset(torch.utils.data.Dataset):
                 dialogue_text += ' [sys] '
                 dialogue_text += turn['response']
                 
+        logger.info(f"Type : {self.data_type} Number of DST questions : " + str(len(question)))
+        logger.info(f"train domain : {dict(train_domain)}")
         
-        is_fewrate_over = False
         for d_idx, d_id in enumerate(dataset.keys()):
+            if self.data_type != 'train':break
             if d_idx/len(dataset.keys()) > self.data_rate:
-                is_fewrate_over = True
+                logger.info(f"over the {self.data_rate}.")
+                break
+            
                 
             dialogue = dataset[d_id]['log']
             dialogue_text = ""
@@ -148,10 +152,11 @@ class Dataset(torch.utils.data.Dataset):
                     for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
                         domain = key.split("-")[0]
                         domain_name = " ".join(key.split("-"))
-                        if self.fewshot_domain \
-                            and domain == self.fewshot_domain and is_fewrate_over == True : continue 
+                        if domain_id[domain] in self.except_domain :continue 
+                        train_domain[domain] +=1
                         q = ontology.QA["general-question"] + " "+domain_name + "?" 
                         c = dialogue_text
+                        
                         if key in turn['belief']: # 언급을 한 경우
                             a = 'yes'
                         else:
@@ -162,7 +167,8 @@ class Dataset(torch.utils.data.Dataset):
                         dial_id.append(d_id)
                         turn_id.append(t_id)
                         is_aux.append(True)
-
+        logger.info(f"Type : {self.data_type} Number of DST and AUX questions : " + str(len(question)))
+        logger.info(f"train domain : {dict(train_domain)}")
         return turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say, is_aux
 
     def __getitem__(self, index):
@@ -229,7 +235,7 @@ if __name__ == '__main__':
     logger = logging.getLogger("my")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_rate' ,  type = float, default=0.01)
+    parser.add_argument('--data_rate' ,  type = float, default=0.001)
     parser.add_argument('--alpha' ,  type = float, default=0.7)
     parser.add_argument('--do_train' ,  type = int, default=1)
     parser.add_argument('--do_short' ,  type = int, default=1)
@@ -254,12 +260,12 @@ if __name__ == '__main__':
     parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
     parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
     parser.add_argument('--aux',  default=1, type=int, help='number of gpus per node')
-    parser.add_argument('--fewshot_domain', type=str, choices=["restaurant", "hotel", "attraction", "train", "taxi"],help='restaurant|hotel|attraction|train|taxi')
+    parser.add_argument('--except_domain', type=str, help='attraction|hotel||train|taxi|restaurant')
     parser.add_argument('--train_continue', type=int, default = 0)
 
     
     args = parser.parse_args()
-    args.fewshot_domain = 'hotel'
+    args.except_domain = '5'
     from transformers import T5Tokenizer
     args.tokenizer = T5Tokenizer.from_pretrained('t5-small')
     with open(args.never_split_file, "r") as f:
@@ -275,6 +281,6 @@ if __name__ == '__main__':
     for batch in loader:
         print(t.decode(batch['input']['input_ids'][5]))
         print(t.decode(batch['target']['input_ids'][5]))
-        pdb.set_trace()
+        # pdb.set_trace()
     
     
