@@ -9,6 +9,13 @@ import pdb
 logger = logging.getLogger("my")
 import pickle
 
+domain_id = {
+    'attraction' : '1',
+    'hotel':'2',
+    'train':'3',
+    'taxi':'4',
+    'restaurant':"5"
+}
 
 def idx_to_text(tokenizer, idx):
     pass
@@ -30,7 +37,7 @@ def makedirs(path):
        if not os.path.isdir(path): 
            raise
        
-def evaluate_metrics(all_prediction, raw_file, detail_log, few_domain = False):
+def evaluate_metrics(all_prediction, raw_file, detail_log, train_domain):
     # schema = ontology.QA['all-domain'][:-1] # next response 는 제외
     schema = ontology.QA['all-domain']# next response 는 제외
     domain = ontology.QA['bigger-domain']
@@ -39,6 +46,7 @@ def evaluate_metrics(all_prediction, raw_file, detail_log, few_domain = False):
     turn_acc, joint_acc, turn_cnt, joint_cnt = 0, 0, 0, 0
     schema_acc = {s:0 for s in schema}
     domain_acc = {s:0 for s in domain}
+    train_domain = train_domain.split(',')
     
     for key in raw_file.keys():
         if key not in all_prediction.keys(): continue
@@ -46,7 +54,7 @@ def evaluate_metrics(all_prediction, raw_file, detail_log, few_domain = False):
         for turn_idx, turn in enumerate(dial):
             belief_label = turn['belief']
             belief_pred = all_prediction[key][str(turn_idx)]
-            belief_label = [f'{k} : {v}' for (k,v) in belief_label.items() if k.split("-")[0] == few_domain] 
+            belief_label = [f'{k} : {v}' for (k,v) in belief_label.items() if domain_id[k.split("-")[0]] in train_domain] 
             belief_pred = [f'{k} : {v}' for (k,v) in belief_pred.items()] 
             if turn_idx == len(dial)-1:
                 logger.info(key)

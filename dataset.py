@@ -28,7 +28,7 @@ class Dataset(torch.utils.data.Dataset):
         self.tokenizer = args.tokenizer
         self.dst_student_rate = args.dst_student_rate
         self.max_length = args.max_length
-        self.except_domain = args.except_domain.split(',')
+        self.train_domain = args.train_domain.split(',')
         self.belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         self.gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         self.gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
@@ -41,7 +41,7 @@ class Dataset(torch.utils.data.Dataset):
         
         
         if args.do_short:
-            raw_path = f'../woz-data/MultiWOZ_2.1/train_data0.001.json' 
+            raw_path = f'../woz-data/MultiWOZ_2.1/train_data0.01.json' 
                 
 
         logger.info(f"load {self.data_type} raw file {raw_path}")
@@ -84,7 +84,7 @@ class Dataset(torch.utils.data.Dataset):
         return len(self.dial_id)
     
     def seperate_data(self, dataset):
-        train_domain = defaultdict(int)
+        train_domain_count = defaultdict(int)
         user_say= defaultdict(lambda : defaultdict(str)) 
         gold_belief_state= defaultdict(lambda : defaultdict(dict))# dial_id, # turn_id
         gold_context= defaultdict(lambda : defaultdict(str))# dial_id, # turn_id
@@ -107,8 +107,8 @@ class Dataset(torch.utils.data.Dataset):
                 user_say[d_id][t_id] = turn['user']
                 for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
                     domain = key.split("-")[0]
-                    if domain_id[domain] in self.except_domain :continue 
-                    train_domain[domain] +=1
+                    if domain_id[domain] not in self.train_domain :continue 
+                    train_domain_count[domain] +=1
                     ##################### changed part #################################
                     q = ontology.QA[key]['description1']
                     c = dialogue_text
@@ -131,7 +131,7 @@ class Dataset(torch.utils.data.Dataset):
                 dialogue_text += turn['response']
                 
         logger.info(f"Type : {self.data_type} Number of DST questions : " + str(len(question)))
-        logger.info(f"train domain : {dict(train_domain)}")
+        logger.info(f"train domain : {dict(train_domain_count)}")
         
         for d_idx, d_id in enumerate(dataset.keys()):
             if self.data_type != 'train':break
@@ -152,8 +152,8 @@ class Dataset(torch.utils.data.Dataset):
                     for key_idx, key in enumerate(ontology.QA['all-domain']): # TODO
                         domain = key.split("-")[0]
                         domain_name = " ".join(key.split("-"))
-                        if domain_id[domain] in self.except_domain :continue 
-                        train_domain[domain] +=1
+                        if domain_id[domain] not in self.train_domain :continue 
+                        train_domain_count[domain] +=1
                         q = ontology.QA["general-question"] + " "+domain_name + "?" 
                         c = dialogue_text
                         
@@ -168,7 +168,7 @@ class Dataset(torch.utils.data.Dataset):
                         turn_id.append(t_id)
                         is_aux.append(True)
         logger.info(f"Type : {self.data_type} Number of DST and AUX questions : " + str(len(question)))
-        logger.info(f"train domain : {dict(train_domain)}")
+        logger.info(f"train domain : {dict(train_domain_count)}")
         return turn_id, dial_id,  question, schema, answer, gold_belief_state, gold_context, user_say, is_aux
 
     def __getitem__(self, index):
@@ -235,7 +235,7 @@ if __name__ == '__main__':
     logger = logging.getLogger("my")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_rate' ,  type = float, default=0.001)
+    parser.add_argument('--data_rate' ,  type = float, default=0.01)
     parser.add_argument('--alpha' ,  type = float, default=0.7)
     parser.add_argument('--do_train' ,  type = int, default=1)
     parser.add_argument('--do_short' ,  type = int, default=1)
@@ -260,12 +260,12 @@ if __name__ == '__main__':
     parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
     parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
     parser.add_argument('--aux',  default=1, type=int, help='number of gpus per node')
-    parser.add_argument('--except_domain', type=str, help='attraction|hotel||train|taxi|restaurant')
+    parser.add_argument('--train_domain', type=str, help='attraction|hotel||train|taxi|restaurant')
     parser.add_argument('--train_continue', type=int, default = 0)
 
     
     args = parser.parse_args()
-    args.except_domain = '5'
+    args.train_domain = '5'
     from transformers import T5Tokenizer
     args.tokenizer = T5Tokenizer.from_pretrained('t5-small')
     with open(args.never_split_file, "r") as f:

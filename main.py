@@ -43,7 +43,7 @@ parser.add_argument('-g', '--gpus', default=4, type=int,help='number of gpus per
 parser.add_argument('-nr', '--nr', default=0, type=int,help='ranking within the nodes')
 parser.add_argument('--never_split_file',  default='./asset/never_split.txt', type=str,help='number of gpus per node')
 parser.add_argument('--aux',  default=1, type=int, help='number of gpus per node')
-parser.add_argument('--except_domain', type=str)
+parser.add_argument('--train_domain', type=str)
 parser.add_argument('--train_continue', type=int, default = 0)
 
 args = parser.parse_args()
@@ -186,8 +186,8 @@ def main():
         except Exception as e:    # 모든 예외의 에러 메시지를 출력할 때는 Exception을 사용
             logger.error(e)
             print(e)
-        
-    evaluate()
+    if args.pretrained_model:    
+        evaluate()
 
 if __name__ =="__main__":
     utils.makedirs("./data"); utils.makedirs("./logs"); utils.makedirs("./model"); utils.makedirs("./out")
