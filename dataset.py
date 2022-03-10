@@ -95,10 +95,19 @@ class Dataset(torch.utils.data.Dataset):
         dial_id = []
         turn_id = []
         is_aux = []
+        
+        d_count = 0
         for d_idx, d_id in enumerate(dataset.keys()):
-            if self.data_type != 'test' and d_idx/len(dataset.keys()) > self.data_rate:
+            if self.data_type != 'test' and d_count/len(dataset.keys()) > self.data_rate:
                 logger.info(f"over the {self.data_rate}.")
                 break
+            goal = dataset[d_id]['goal']
+            goal_domain = list(goal.keys())
+            goal_domain = [domain_id[d] for d in goal_domain if d in domain_id.keys()]
+            if len(self.train_domain) ==1 and self.train_domain[0] not in goal_domain:
+                continue
+            d_count +=1
+            
             dialogue = dataset[d_id]['log']
             dialogue_text = ""
             for t_id, turn in enumerate(dialogue):
@@ -133,13 +142,15 @@ class Dataset(torch.utils.data.Dataset):
         logger.info(f"Type : {self.data_type} Number of DST questions : " + str(len(question)))
         logger.info(f"train domain : {dict(train_domain_count)}")
         
+        
+        
         for d_idx, d_id in enumerate(dataset.keys()):
-            if self.data_type != 'train':break
-            if d_idx/len(dataset.keys()) > self.data_rate:
-                logger.info(f"over the {self.data_rate}.")
-                break
-            
-                
+            # if self.data_type != 'train':break
+            # if d_idx/len(dataset.keys()) > self.data_rate:
+            #     logger.info(f"over the {self.data_rate}.")
+            #     break
+            if d_id not in dial_id:
+                continue
             dialogue = dataset[d_id]['log']
             dialogue_text = ""
             
@@ -235,7 +246,7 @@ if __name__ == '__main__':
     logger = logging.getLogger("my")
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_rate' ,  type = float, default=0.01)
+    parser.add_argument('--data_rate' ,  type = float, default=1.0)
     parser.add_argument('--alpha' ,  type = float, default=0.7)
     parser.add_argument('--do_train' ,  type = int, default=1)
     parser.add_argument('--do_short' ,  type = int, default=0)
@@ -275,7 +286,7 @@ if __name__ == '__main__':
     args.tokenizer = T5Tokenizer.from_pretrained(args.base_trained)
     args.tokenizer.add_special_tokens(special_tokens_dict)
     
-    dataset = Dataset(args, args.test_path, 'test')
+    dataset = Dataset(args, args.train_path, 'train')
     loader = torch.utils.data.DataLoader(dataset=dataset, batch_size=16, collate_fn=dataset.collate_fn)
     t  = args.tokenizer
     for batch in loader:
